@@ -1,0 +1,354 @@
+"""
+FastAPI server for PuthToTalk VS Code extension.
+Receives audio, transcribes via faster-whisper, returns text.
+
+Usage:
+    python server.py --port 0 --model large-v3 --device auto
+                     --compute-type auto --storage-dir /path/to/models
+                     --token <secret> --port-file /path/to/server.port
+                     --log-file /path/to/server.log
+"""
+
+import argparse
+import asyncio
+import io
+import os
+import socket
+import struct
+import sys
+import time
+from contextlib import asynccontextmanager
+from typing import Optional
+
+import numpy as np
+import uvicorn
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
+from loguru import logger
+from pydantic import BaseModel
+
+
+def setup_logging(log_file: Optional[str]) -> None:
+    logger.remove()
+    logger.add(sys.stdout, level="INFO", format="{time:YYYY-MM-DD HH:mm:ss} [{level}] {message}")
+    if log_file:
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        logger.add(log_file, level="INFO", rotation="5 MB", retention=5, enqueue=True)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="PuthToTalk Whisper server")
+    parser.add_argument("--port", type=int, default=0)
+    parser.add_argument("--model", type=str, default="large-v3")
+    parser.add_argument("--device", type=str, default="auto")
+    parser.add_argument("--compute-type", type=str, default="auto", dest="compute_type")
+    parser.add_argument("--beam-size", type=int, default=5, dest="beam_size")
+    parser.add_argument("--storage-dir", type=str, required=True, dest="storage_dir")
+    parser.add_argument("--token", type=str, required=True)
+    parser.add_argument("--port-file", type=str, required=True, dest="port_file")
+    parser.add_argument("--log-file", type=str, default=None, dest="log_file")
+    return parser.parse_args()
+
+
+def is_cuda_available() -> bool:
+    try:
+        import torch
+        return bool(torch.cuda.is_available())
+    except ImportError:
+        return False
+
+
+class WhisperModel:
+    def __init__(self) -> None:
+        self._model = None
+        self._model_name: str = ""
+        self._device: str = ""
+        self._compute_type: str = ""
+        self._storage_dir: str = ""
+        self._beam_size: int = 5
+        self._loaded_at: float = 0.0
+
+    def load(
+        self,
+        model_name: str,
+        device: str,
+        compute_type: str,
+        storage_dir: str,
+        beam_size: int,
+    ) -> None:
+        from faster_whisper import WhisperModel as FasterWhisperModel
+
+        logger.info("Loading model {} on {} ({})...", model_name, device, compute_type)
+
+        resolved_device, resolved_compute = self._resolve_device_compute(device, compute_type)
+
+        self._model = FasterWhisperModel(
+            model_name,
+            device=resolved_device,
+            compute_type=resolved_compute,
+            download_root=storage_dir,
+        )
+        self._model_name = model_name
+        self._device = resolved_device
+        self._compute_type = resolved_compute
+        self._storage_dir = storage_dir
+        self._beam_size = beam_size
+        self._loaded_at = time.time()
+        logger.info("Model loaded: {} on {}", model_name, resolved_device)
+
+    def _resolve_device_compute(self, device: str, compute_type: str) -> tuple[str, str]:
+        if device != "auto":
+            resolved_device = device
+        else:
+            resolved_device = "cuda" if is_cuda_available() else "cpu"
+
+        if compute_type != "auto":
+            return resolved_device, compute_type
+
+        if resolved_device.startswith("cuda"):
+            return resolved_device, "float16"
+        return resolved_device, "int8"
+
+    def transcribe(
+        self,
+        audio_data: np.ndarray,
+        language: Optional[str],
+        vad_filter: bool,
+    ) -> dict:
+        if self._model is None:
+            raise RuntimeError("Model not loaded")
+
+        lang = language if language and language != "auto" else None
+
+        segments, info = self._model.transcribe(
+            audio_data,
+            language=lang,
+            beam_size=self._beam_size,
+            vad_filter=vad_filter,
+        )
+
+        text = " ".join(segment.text for segment in segments).strip()
+        return {
+            "text": text,
+            "language": info.language,
+            "duration_sec": float(info.duration),
+        }
+
+    def reload(self, model_name: str, device: str, compute_type: str, beam_size: int) -> None:
+        self.load(model_name, device, compute_type, self._storage_dir, beam_size)
+
+    @property
+    def is_loaded(self) -> bool:
+        return self._model is not None
+
+    @property
+    def info(self) -> dict:
+        return {
+            "model": self._model_name,
+            "device": self._device,
+            "compute_type": self._compute_type,
+        }
+
+
+whisper = WhisperModel()
+server_args: argparse.Namespace
+start_time: float = time.time()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    whisper.load(
+        server_args.model,
+        server_args.device,
+        server_args.compute_type,
+        server_args.storage_dir,
+        server_args.beam_size,
+    )
+    yield
+
+
+app = FastAPI(title="PuthToTalk", lifespan=lifespan)
+
+
+def verify_token(x_extension_token: str = Header(...)) -> None:
+    if x_extension_token != server_args.token:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+class HealthResponse(BaseModel):
+    status: str
+    model: str
+    device: str
+    uptime_sec: float
+
+
+class TranscribeResponse(BaseModel):
+    text: str
+    language: str
+    duration_sec: float
+    processing_time_sec: float
+
+
+class InfoResponse(BaseModel):
+    status: str
+    model: str
+    device: str
+    compute_type: str
+    cuda_available: bool
+    uptime_sec: float
+    pid: int
+
+
+class ReloadResponse(BaseModel):
+    status: str
+    model: str
+
+
+class ShutdownResponse(BaseModel):
+    status: str
+
+
+@app.get("/health", response_model=HealthResponse, summary="Server health check", tags=["System"], status_code=200)
+async def health(x_extension_token: str = Header(...)) -> HealthResponse:
+    verify_token(x_extension_token)
+    return HealthResponse(
+        status="ready" if whisper.is_loaded else "loading",
+        model=whisper.info.get("model", ""),
+        device=whisper.info.get("device", ""),
+        uptime_sec=round(time.time() - start_time, 1),
+    )
+
+
+@app.post(
+    "/transcribe",
+    response_model=TranscribeResponse,
+    summary="Transcribe audio",
+    tags=["Transcription"],
+    status_code=200,
+)
+async def transcribe(
+    audio: UploadFile = File(...),
+    language: Optional[str] = Form(default=None),
+    vad_filter: bool = Form(default=True),
+    x_extension_token: str = Header(...),
+) -> TranscribeResponse:
+    verify_token(x_extension_token)
+
+    if not whisper.is_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded yet")
+
+    t0 = time.time()
+
+    audio_bytes = await audio.read()
+    audio_array = _decode_wav(audio_bytes)
+
+    result = await asyncio.to_thread(whisper.transcribe, audio_array, language, vad_filter)
+
+    processing_time = round(time.time() - t0, 3)
+    logger.info(
+        "Transcribed {:.1f}s audio in {:.2f}s | lang={} | text={}...",
+        result["duration_sec"],
+        processing_time,
+        result["language"],
+        result["text"][:60],
+    )
+
+    return TranscribeResponse(
+        text=result["text"],
+        language=result["language"],
+        duration_sec=result["duration_sec"],
+        processing_time_sec=processing_time,
+    )
+
+
+@app.post("/reload", response_model=ReloadResponse, summary="Reload model with new settings", tags=["System"], status_code=200)
+async def reload_model(
+    model: str = Form(...),
+    device: str = Form(default="auto"),
+    compute_type: str = Form(default="auto"),
+    beam_size: int = Form(default=5),
+    x_extension_token: str = Header(...),
+) -> ReloadResponse:
+    verify_token(x_extension_token)
+    whisper.reload(model, device, compute_type, beam_size)
+    return ReloadResponse(status="reloaded", model=model)
+
+
+@app.get("/info", response_model=InfoResponse, summary="Detailed server info", tags=["System"], status_code=200)
+async def info(x_extension_token: str = Header(...)) -> InfoResponse:
+    verify_token(x_extension_token)
+    return InfoResponse(
+        status="ready" if whisper.is_loaded else "loading",
+        model=whisper.info.get("model", ""),
+        device=whisper.info.get("device", ""),
+        compute_type=whisper.info.get("compute_type", ""),
+        cuda_available=is_cuda_available(),
+        uptime_sec=round(time.time() - start_time, 1),
+        pid=os.getpid(),
+    )
+
+
+@app.post("/shutdown", response_model=ShutdownResponse, summary="Graceful shutdown", tags=["System"], status_code=200)
+async def shutdown(x_extension_token: str = Header(...)) -> ShutdownResponse:
+    verify_token(x_extension_token)
+    logger.info("Shutdown requested")
+    os.kill(os.getpid(), 15)
+    return ShutdownResponse(status="shutting_down")
+
+
+def _decode_wav(data: bytes) -> np.ndarray:
+    """Decode 16-bit PCM WAV to float32 numpy array."""
+    buf = io.BytesIO(data)
+
+    riff = buf.read(4)
+    if riff != b"RIFF":
+        raise HTTPException(status_code=400, detail="Expected RIFF WAV file")
+
+    buf.read(4)
+    wave = buf.read(4)
+    if wave != b"WAVE":
+        raise HTTPException(status_code=400, detail="Expected WAVE format")
+
+    while True:
+        chunk_id = buf.read(4)
+        if len(chunk_id) < 4:
+            raise HTTPException(status_code=400, detail="No data chunk in WAV")
+        chunk_size = struct.unpack("<I", buf.read(4))[0]
+        if chunk_id == b"data":
+            raw = buf.read(chunk_size)
+            break
+        buf.read(chunk_size)
+
+    samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    return samples
+
+
+def main() -> None:
+    global server_args
+    server_args = parse_args()
+    setup_logging(server_args.log_file)
+
+    if server_args.port == 0:
+        sock = socket.socket()
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        sock.close()
+    else:
+        port = server_args.port
+
+    os.makedirs(os.path.dirname(server_args.port_file), exist_ok=True)
+    with open(server_args.port_file, "w") as f:
+        f.write(str(port))
+
+    logger.info("Starting PuthToTalk server on 127.0.0.1:{}", port)
+
+    uvicorn.run(
+        app,
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
+    )
+
+
+if __name__ == "__main__":
+    main()

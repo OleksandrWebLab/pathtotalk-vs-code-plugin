@@ -1,0 +1,340 @@
+import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as cp from 'child_process';
+import * as crypto from 'crypto';
+
+export type ServerStatus = 'stopped' | 'starting' | 'ready' | 'error';
+
+export class ServerManager implements vscode.Disposable {
+    private process: cp.ChildProcess | null = null;
+    private _status: ServerStatus = 'stopped';
+    private _port: number | null = null;
+    private _token: string = '';
+    private restartCount: number = 0;
+    private restartWindowStart: number = 0;
+    private healthCheckTimer: NodeJS.Timeout | null = null;
+    private healthFailCount: number = 0;
+    private readonly healthFailThreshold = 4;
+
+    private readonly onStatusChangedEmitter = new vscode.EventEmitter<ServerStatus>();
+    readonly onStatusChanged = this.onStatusChangedEmitter.event;
+
+    constructor(
+        private readonly context: vscode.ExtensionContext,
+        private readonly outputChannel: vscode.OutputChannel,
+    ) {}
+
+    get status(): ServerStatus {
+        return this._status;
+    }
+
+    get port(): number | null {
+        return this._port;
+    }
+
+    get token(): string {
+        return this._token;
+    }
+
+    async start(): Promise<void> {
+        if (this._status === 'starting' || this._status === 'ready') {
+            return;
+        }
+
+        this._token = crypto.randomBytes(32).toString('hex');
+        this.setStatus('starting');
+
+        try {
+            await this.spawnServer();
+            this.startHealthCheck();
+        } catch (err) {
+            this.outputChannel.appendLine(`[ServerManager] Failed to start: ${err}`);
+            this.setStatus('error');
+        }
+    }
+
+    async stop(): Promise<void> {
+        this.stopHealthCheck();
+
+        if (!this.process) {
+            return;
+        }
+
+        // Try graceful shutdown via HTTP
+        if (this._port && this._token) {
+            try {
+                await this.sendShutdown();
+                await this.waitForExit(5000);
+            } catch {
+                // Fall through to SIGTERM
+            }
+        }
+
+        if (this.process && !this.process.killed) {
+            this.process.kill('SIGTERM');
+            await this.waitForExit(3000);
+        }
+
+        if (this.process && !this.process.killed) {
+            this.process.kill('SIGKILL');
+        }
+
+        this.process = null;
+        this._port = null;
+        this.setStatus('stopped');
+    }
+
+    async restart(): Promise<void> {
+        await this.stop();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await this.start();
+    }
+
+    private async spawnServer(): Promise<void> {
+        const pythonPath = this.getPythonPath();
+        const serverScript = this.getServerScript();
+        const storageDir = this.context.globalStorageUri.fsPath;
+        const portFile = path.join(storageDir, 'server.port');
+        const logFile = path.join(storageDir, 'logs', 'server.log');
+
+        const config = vscode.workspace.getConfiguration('puthtotalk');
+        const model = config.get<string>('model', 'large-v3');
+        const device = config.get<string>('device', 'auto');
+        const computeType = config.get<string>('computeType', 'auto');
+        const beamSize = config.get<number>('beamSize', 5);
+
+        // Remove stale port file
+        if (fs.existsSync(portFile)) {
+            fs.unlinkSync(portFile);
+        }
+
+        const args = [
+            serverScript,
+            '--port', '0',
+            '--model', model,
+            '--device', device,
+            '--compute-type', computeType,
+            '--beam-size', String(beamSize),
+            '--storage-dir', path.join(storageDir, 'models'),
+            '--token', this._token,
+            '--port-file', portFile,
+            '--log-file', logFile,
+        ];
+
+        this.outputChannel.appendLine(`[ServerManager] Starting: ${pythonPath} ${args.slice(0, 6).join(' ')} ...`);
+
+        let progressReport: ((line: string) => void) | null = null;
+
+        this.process = cp.spawn(pythonPath, args, {
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env },
+        });
+
+        this.process.stdout?.on('data', (data: Buffer) => {
+            const text = data.toString().trimEnd();
+            this.outputChannel.appendLine(`[server] ${text}`);
+            progressReport?.(text);
+        });
+
+        this.process.stderr?.on('data', (data: Buffer) => {
+            const text = data.toString().trimEnd();
+            this.outputChannel.appendLine(`[server err] ${text}`);
+            progressReport?.(text);
+        });
+
+        this.process.on('exit', (code) => {
+            this.outputChannel.appendLine(`[ServerManager] Process exited with code ${code}`);
+            if (this._status !== 'stopped') {
+                this.handleUnexpectedExit();
+            }
+        });
+
+        // Wait for port file (up to 60 seconds)
+        const port = await this.waitForPortFile(portFile, 60000);
+        this._port = port;
+
+        // Wait for /health to return ready with visible progress notification
+        await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `PuthToTalk: Loading model "${model}"...`,
+                cancellable: false,
+            },
+            async (progress) => {
+                progress.report({ message: 'Waiting for server...' });
+
+                progressReport = (line: string): void => {
+                    if (line.includes('Downloading') || line.includes('HTTP Request')) {
+                        const urlMatch = line.match(/\/([^/]+\.(?:bin|json|model|pt|gguf))/);
+                        const fileName = urlMatch ? urlMatch[1] : 'model files';
+                        progress.report({ message: `Downloading ${fileName}...` });
+                    } else if (line.includes('Loading model')) {
+                        progress.report({ message: 'Loading model into memory...' });
+                    } else if (line.includes('on cuda') || line.includes('on cpu')) {
+                        progress.report({ message: 'Model loaded, warming up...' });
+                    }
+                };
+
+                try {
+                    await this.waitForReady(600000);
+                } finally {
+                    progressReport = null;
+                }
+            }
+        );
+
+        this.setStatus('ready');
+        this.outputChannel.appendLine(`[ServerManager] Ready on port ${this._port}`);
+    }
+
+    private async waitForPortFile(portFile: string, timeoutMs: number): Promise<number> {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+            if (fs.existsSync(portFile)) {
+                const content = fs.readFileSync(portFile, 'utf8').trim();
+                const port = parseInt(content, 10);
+                if (!isNaN(port) && port > 0) {
+                    return port;
+                }
+            }
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        throw new Error('Timed out waiting for server port file');
+    }
+
+    private async waitForReady(timeoutMs: number): Promise<void> {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+            try {
+                const status = await this.fetchHealth();
+                if (status === 'ready') {
+                    return;
+                }
+            } catch {
+                // Server not up yet
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        throw new Error('Timed out waiting for server to become ready');
+    }
+
+    private async fetchHealth(): Promise<string> {
+        if (!this._port) {
+            throw new Error('No port');
+        }
+        const response = await fetch(`http://127.0.0.1:${this._port}/health`, {
+            headers: { 'X-Extension-Token': this._token },
+            signal: AbortSignal.timeout(2000),
+        });
+        if (!response.ok) {
+            throw new Error(`Health check HTTP ${response.status}`);
+        }
+        const body = await response.json() as { status: string };
+        return body.status;
+    }
+
+    private startHealthCheck(): void {
+        this.healthFailCount = 0;
+        this.healthCheckTimer = setInterval(async () => {
+            try {
+                const status = await this.fetchHealth();
+                this.healthFailCount = 0;
+                if (status !== 'ready' && this._status === 'ready') {
+                    this.setStatus('error');
+                }
+            } catch {
+                if (this._status === 'ready') {
+                    this.healthFailCount++;
+                    if (this.healthFailCount >= this.healthFailThreshold) {
+                        this.outputChannel.appendLine(
+                            `[ServerManager] Health check failed ${this.healthFailCount} times, marking error`
+                        );
+                        this.setStatus('error');
+                    }
+                }
+            }
+        }, 2000);
+    }
+
+    private stopHealthCheck(): void {
+        if (this.healthCheckTimer) {
+            clearInterval(this.healthCheckTimer);
+            this.healthCheckTimer = null;
+        }
+    }
+
+    private handleUnexpectedExit(): void {
+        this.setStatus('error');
+        this.process = null;
+        this._port = null;
+
+        const now = Date.now();
+        if (now - this.restartWindowStart > 60000) {
+            this.restartWindowStart = now;
+            this.restartCount = 0;
+        }
+
+        this.restartCount++;
+        if (this.restartCount <= 3) {
+            this.outputChannel.appendLine(
+                `[ServerManager] Auto-restarting (attempt ${this.restartCount}/3)...`
+            );
+            setTimeout(() => this.start(), 2000);
+        } else {
+            this.outputChannel.appendLine('[ServerManager] Too many restarts, giving up.');
+            vscode.window.showErrorMessage(
+                'PuthToTalk: Voice server crashed repeatedly. Click to view logs.',
+                'Show Logs'
+            ).then(choice => {
+                if (choice === 'Show Logs') {
+                    this.outputChannel.show();
+                }
+            });
+        }
+    }
+
+    private async sendShutdown(): Promise<void> {
+        await fetch(`http://127.0.0.1:${this._port}/shutdown`, {
+            method: 'POST',
+            headers: { 'X-Extension-Token': this._token },
+            signal: AbortSignal.timeout(3000),
+        });
+    }
+
+    private waitForExit(timeoutMs: number): Promise<void> {
+        return new Promise(resolve => {
+            if (!this.process) {
+                resolve();
+                return;
+            }
+            const timer = setTimeout(resolve, timeoutMs);
+            this.process.once('exit', () => {
+                clearTimeout(timer);
+                resolve();
+            });
+        });
+    }
+
+    private getPythonPath(): string {
+        const storageDir = this.context.globalStorageUri.fsPath;
+        return path.join(storageDir, 'python-venv', 'bin', 'python');
+    }
+
+    private getServerScript(): string {
+        return path.join(this.context.extensionPath, 'python', 'server.py');
+    }
+
+    private setStatus(status: ServerStatus): void {
+        this._status = status;
+        this.onStatusChangedEmitter.fire(status);
+    }
+
+    dispose(): void {
+        this.stopHealthCheck();
+        this.onStatusChangedEmitter.dispose();
+        if (this.process && !this.process.killed) {
+            this.process.kill('SIGKILL');
+        }
+    }
+}
