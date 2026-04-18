@@ -1,0 +1,233 @@
+{
+  "name": "puthtotalk",
+  "displayName": "PuthToTalk - Voice Input",
+  "description": "Local voice input via Whisper. Dictate prompts and text, copy from Voice Log.",
+  "version": "0.1.0",
+  "publisher": "artisanweblab",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "icon": "media/icons/extension-icon.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "puthtotalk.startRecording",
+        "title": "Voice: Start Recording"
+      },
+      {
+        "command": "puthtotalk.stopRecording",
+        "title": "Voice: Stop Recording"
+      },
+      {
+        "command": "puthtotalk.showLog",
+        "title": "Voice: Show Log"
+      },
+      {
+        "command": "puthtotalk.copyLastTranscription",
+        "title": "Voice: Copy Last Transcription"
+      },
+      {
+        "command": "puthtotalk.searchLog",
+        "title": "Voice: Search Log"
+      },
+      {
+        "command": "puthtotalk.clearProjectLog",
+        "title": "Voice: Clear Project Log"
+      },
+      {
+        "command": "puthtotalk.exportLogMarkdown",
+        "title": "Voice: Export Log as Markdown"
+      },
+      {
+        "command": "puthtotalk.openLogFile",
+        "title": "Voice: Open Log File"
+      },
+      {
+        "command": "puthtotalk.addLogToGitignore",
+        "title": "Voice: Add Log to .gitignore"
+      },
+      {
+        "command": "puthtotalk.removeLogFromGitignore",
+        "title": "Voice: Remove Log from .gitignore"
+      },
+      {
+        "command": "puthtotalk.changeModel",
+        "title": "Voice: Change Model"
+      },
+      {
+        "command": "puthtotalk.changeLanguage",
+        "title": "Voice: Change Language"
+      },
+      {
+        "command": "puthtotalk.changeDevice",
+        "title": "Voice: Change Compute Device"
+      },
+      {
+        "command": "puthtotalk.restartServer",
+        "title": "Voice: Restart Server"
+      },
+      {
+        "command": "puthtotalk.showServerLogs",
+        "title": "Voice: Show Server Logs"
+      },
+      {
+        "command": "puthtotalk.showExtensionLogs",
+        "title": "Voice: Show Extension Logs"
+      },
+      {
+        "command": "puthtotalk.downloadModel",
+        "title": "Voice: Download Model"
+      },
+      {
+        "command": "puthtotalk.resetExtension",
+        "title": "Voice: Reset Extension"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "puthtotalk.startRecording",
+        "key": "ctrl+shift+m",
+        "when": "!puthtotalk.isRecording"
+      },
+      {
+        "command": "puthtotalk.stopRecording",
+        "key": "ctrl+shift+m",
+        "when": "puthtotalk.isRecording"
+      },
+      {
+        "command": "puthtotalk.stopRecording",
+        "key": "escape",
+        "when": "puthtotalk.isRecording"
+      },
+      {
+        "command": "puthtotalk.showLog",
+        "key": "ctrl+shift+l"
+      }
+    ],
+    "views": {
+      "puthtotalk-sidebar": [
+        {
+          "type": "webview",
+          "id": "puthtotalk.voiceLog",
+          "name": "Voice Log"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "puthtotalk-sidebar",
+          "title": "Voice Log",
+          "icon": "media/icons/microphone.svg"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "PuthToTalk",
+      "properties": {
+        "puthtotalk.model": {
+          "type": "string",
+          "default": "large-v3",
+          "enum": ["tiny", "base", "small", "medium", "large-v2", "large-v3"],
+          "description": "Whisper model to use for transcription"
+        },
+        "puthtotalk.device": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "cuda:0", "cuda:1", "cpu"],
+          "description": "Compute device for Whisper"
+        },
+        "puthtotalk.language": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "ru", "uk", "en", "de", "fr", "es", "it", "pl"],
+          "description": "Transcription language (auto = detect)"
+        },
+        "puthtotalk.mode": {
+          "type": "string",
+          "default": "push-to-talk",
+          "enum": ["push-to-talk", "toggle"],
+          "description": "Recording mode"
+        },
+        "puthtotalk.computeType": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "float16", "int8_float16", "int8", "float32"],
+          "description": "Compute type for faster-whisper"
+        },
+        "puthtotalk.vadFilter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable voice activity detection filter"
+        },
+        "puthtotalk.beamSize": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Beam size for Whisper decoding"
+        },
+        "puthtotalk.serverPort": {
+          "type": "number",
+          "default": 0,
+          "description": "Python server port (0 = auto)"
+        },
+        "puthtotalk.log.maxRecords": {
+          "type": "number",
+          "default": 1000,
+          "description": "Maximum records per project log"
+        },
+        "puthtotalk.log.onLimitExceeded": {
+          "type": "string",
+          "default": "delete-oldest",
+          "enum": ["delete-oldest", "delete-non-starred", "archive", "ask"],
+          "description": "What to do when log limit is exceeded"
+        },
+        "puthtotalk.log.autoOpenPanel": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-open Voice Log panel on VS Code start"
+        },
+        "puthtotalk.log.groupBy": {
+          "type": "string",
+          "default": "day",
+          "enum": ["day", "week", "none"],
+          "description": "Group records by time period"
+        },
+        "puthtotalk.log.showNotificationOnTranscribe": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show toast notification after transcription"
+        },
+        "puthtotalk.log.multiRootFolder": {
+          "type": "number",
+          "default": 0,
+          "description": "Folder index for multi-root workspace log storage"
+        },
+        "puthtotalk.gitignoreBehavior": {
+          "type": "string",
+          "default": "auto-add",
+          "enum": ["auto-add", "ask", "never"],
+          "description": "How to handle .gitignore for voice-log.jsonl"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.3.0"
+  }
+}

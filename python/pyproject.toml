@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "puthtotalk-server"
+version = "0.1.0"
+description = "FastAPI server that runs faster-whisper transcription for the PuthToTalk VS Code extension."
+requires-python = ">=3.10"
+dependencies = [
+    "faster-whisper>=1.0.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+    "python-multipart>=0.0.9",
+    "numpy>=1.24.0",
+    "loguru>=0.7.0",
+    "torch>=2.0.0",
+]
+
+[tool.setuptools]
+py-modules = ["server"]
+
+[tool.ruff]
+line-length = 125
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM"]

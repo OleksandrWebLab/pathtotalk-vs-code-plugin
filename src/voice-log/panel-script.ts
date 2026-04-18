@@ -1,0 +1,234 @@
+export const PANEL_SCRIPT = `
+(function() {
+    const vscode = acquireVsCodeApi();
+    let allRecords = [];
+    let expandedIds = new Set();
+    let editingId = null;
+
+    document.getElementById('clearAllBtn').onclick = function() {
+        vscode.postMessage({ type: 'clearAll' });
+    };
+
+    const searchInput = document.getElementById('searchInput');
+    let searchTimer = null;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function() {
+            vscode.postMessage({ type: 'search', query: searchInput.value });
+        }, 200);
+    });
+
+    window.addEventListener('message', function(event) {
+        const msg = event.data;
+        switch (msg.type) {
+            case 'records':
+                allRecords = msg.records || [];
+                document.getElementById('projectName').textContent = msg.projectName || '';
+                renderRecords(allRecords);
+                break;
+            case 'copied':
+                flashCopied(msg.id);
+                break;
+            case 'focusSearch':
+                searchInput.focus();
+                searchInput.select();
+                break;
+        }
+    });
+
+    function renderRecords(records) {
+        const list = document.getElementById('logList');
+        list.innerHTML = '';
+
+        if (!records || records.length === 0) {
+            list.innerHTML = '<div class="empty-state"><div class="empty-icon">\u{1F3A4}</div><div>No voice records yet.<br>Press Ctrl+Shift+M to start recording.</div></div>';
+            return;
+        }
+
+        const starred = records.filter(r => r.starred);
+        if (starred.length > 0) {
+            const label = document.createElement('div');
+            label.className = 'starred-section-label';
+            label.textContent = '\u2B50 Starred';
+            list.appendChild(label);
+            starred.forEach(r => list.appendChild(buildCard(r)));
+        }
+
+        const unstarred = records.filter(r => !r.starred);
+        const groups = groupByDay(unstarred);
+        for (const [day, dayRecords] of groups) {
+            const label = document.createElement('div');
+            label.className = 'day-label';
+            label.textContent = day;
+            list.appendChild(label);
+            dayRecords.forEach(r => list.appendChild(buildCard(r)));
+        }
+    }
+
+    function buildCard(record) {
+        const card = document.createElement('div');
+        card.className = 'record-card' + (record.starred ? ' starred' : '');
+        card.dataset.id = record.id;
+
+        const meta = document.createElement('div');
+        meta.className = 'record-meta';
+
+        const d = new Date(record.timestamp);
+        const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        meta.innerHTML =
+            '<span class="record-time">' + escHtml(time) + '</span>' +
+            '<span class="record-lang">' + escHtml(record.language) + '</span>' +
+            '<span class="record-dur">' + record.duration_sec.toFixed(1) + 's</span>' +
+            (record.starred ? '<span class="star-indicator">\u2B50</span>' : '');
+        card.appendChild(meta);
+
+        const isExpanded = expandedIds.has(record.id);
+        const isLong = record.text.length > 150 || record.text.split('\\n').length > 3;
+
+        if (editingId === record.id) {
+            const textarea = document.createElement('textarea');
+            textarea.className = 'edit-area';
+            textarea.value = record.text;
+            card.appendChild(textarea);
+
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'action-btn';
+            saveBtn.textContent = 'Save';
+            saveBtn.onclick = function() {
+                editingId = null;
+                vscode.postMessage({ type: 'edit', id: record.id, text: textarea.value });
+            };
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'action-btn';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = function() {
+                editingId = null;
+                renderRecords(allRecords);
+            };
+
+            const editActions = document.createElement('div');
+            editActions.className = 'record-actions always-visible';
+            editActions.appendChild(saveBtn);
+            editActions.appendChild(cancelBtn);
+            card.appendChild(editActions);
+        } else {
+            const textEl = document.createElement('div');
+            textEl.className = 'record-text' + (isLong && !isExpanded ? ' collapsed' : '');
+            textEl.textContent = record.text;
+            card.appendChild(textEl);
+
+            if (isLong) {
+                const expandBtn = document.createElement('button');
+                expandBtn.className = 'expand-btn';
+                expandBtn.textContent = isExpanded ? 'Show less' : 'Show more';
+                expandBtn.onclick = function() {
+                    if (isExpanded) {
+                        expandedIds.delete(record.id);
+                    } else {
+                        expandedIds.add(record.id);
+                    }
+                    renderRecords(allRecords);
+                };
+                card.appendChild(expandBtn);
+            }
+
+            const actions = document.createElement('div');
+            actions.className = 'record-actions';
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'action-btn copy-btn';
+            copyBtn.dataset.copyId = record.id;
+            copyBtn.textContent = '\u{1F4CB} Copy';
+            copyBtn.onclick = function() {
+                vscode.postMessage({ type: 'copy', id: record.id });
+            };
+
+            const starBtn = document.createElement('button');
+            starBtn.className = 'action-btn';
+            starBtn.textContent = record.starred ? '\u2605 Unstar' : '\u2606 Star';
+            starBtn.onclick = function() {
+                vscode.postMessage({ type: 'star', id: record.id, starred: !record.starred });
+            };
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'action-btn';
+            editBtn.textContent = '\u270F\uFE0F Edit';
+            editBtn.onclick = function() {
+                editingId = record.id;
+                renderRecords(allRecords);
+            };
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'action-btn';
+            delBtn.textContent = '\u{1F5D1}';
+            delBtn.title = 'Delete';
+            delBtn.onclick = function() {
+                if (confirm('Delete this record?')) {
+                    vscode.postMessage({ type: 'delete', id: record.id });
+                }
+            };
+
+            actions.appendChild(copyBtn);
+            actions.appendChild(starBtn);
+            actions.appendChild(editBtn);
+            actions.appendChild(delBtn);
+            card.appendChild(actions);
+        }
+
+        return card;
+    }
+
+    function flashCopied(id) {
+        const btn = document.querySelector('[data-copy-id="' + id + '"]');
+        if (!btn) return;
+        btn.textContent = '\u2713 Copied!';
+        btn.classList.add('copied');
+        setTimeout(function() {
+            btn.textContent = '\u{1F4CB} Copy';
+            btn.classList.remove('copied');
+        }, 1500);
+    }
+
+    function groupByDay(records) {
+        const map = new Map();
+        const now = new Date();
+        const today = toDateStr(now);
+        const yesterday = toDateStr(new Date(now.getTime() - 86400000));
+        const weekAgo = new Date(now.getTime() - 7 * 86400000);
+
+        for (const r of records) {
+            const d = new Date(r.timestamp);
+            const dateStr = toDateStr(d);
+            let label;
+            if (dateStr === today) {
+                label = 'Today';
+            } else if (dateStr === yesterday) {
+                label = 'Yesterday';
+            } else if (d >= weekAgo) {
+                label = 'This Week';
+            } else {
+                label = dateStr;
+            }
+            if (!map.has(label)) {
+                map.set(label, []);
+            }
+            map.get(label).push(r);
+        }
+        return map;
+    }
+
+    function toDateStr(d) {
+        return d.getFullYear() + '-' +
+            String(d.getMonth() + 1).padStart(2, '0') + '-' +
+            String(d.getDate()).padStart(2, '0');
+    }
+
+    function escHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    vscode.postMessage({ type: 'ready' });
+})();
+`;
