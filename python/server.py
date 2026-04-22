@@ -12,10 +12,12 @@ Usage:
 import argparse
 import asyncio
 import io
+import json
 import os
 import socket
 import struct
 import sys
+import threading
 import time
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -23,7 +25,7 @@ from typing import Optional
 import numpy as np
 import uvicorn
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
 
@@ -134,6 +136,24 @@ class WhisperModel:
             "duration_sec": float(info.duration),
         }
 
+    def transcribe_file_stream(self, file_path: str, language: Optional[str]):
+        """Return (segments_iterable, info) for a media file. faster-whisper handles ffmpeg internally."""
+        if self._model is None:
+            raise RuntimeError("Model not loaded")
+
+        lang = language if language and language != "auto" else None
+
+        segments, info = self._model.transcribe(
+            file_path,
+            language=lang,
+            beam_size=self._beam_size,
+            vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": 500},
+            condition_on_previous_text=False,
+            no_speech_threshold=0.6,
+        )
+        return segments, info
+
     def reload(self, model_name: str, device: str, compute_type: str, beam_size: int) -> None:
         self.load(model_name, device, compute_type, self._storage_dir, beam_size)
 
@@ -208,6 +228,11 @@ class ShutdownResponse(BaseModel):
     status: str
 
 
+class TranscribeFileRequest(BaseModel):
+    path: str
+    language: Optional[str] = None
+
+
 @app.get("/health", response_model=HealthResponse, summary="Server health check", tags=["System"], status_code=200)
 async def health(x_extension_token: str = Header(...)) -> HealthResponse:
     verify_token(x_extension_token)
@@ -259,6 +284,89 @@ async def transcribe(
         duration_sec=result["duration_sec"],
         processing_time_sec=processing_time,
     )
+
+
+@app.post(
+    "/transcribe-file",
+    summary="Transcribe media file with timestamps (streaming)",
+    tags=["Transcription"],
+    status_code=200,
+)
+async def transcribe_file(
+    body: TranscribeFileRequest,
+    x_extension_token: str = Header(...),
+) -> StreamingResponse:
+    verify_token(x_extension_token)
+
+    if not whisper.is_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded yet")
+
+    if not os.path.isfile(body.path):
+        raise HTTPException(status_code=400, detail=f"File not found: {body.path}")
+
+    queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+    progress_interval_sec = 1.0
+
+    def worker() -> None:
+        try:
+            t0 = time.time()
+            segments, info = whisper.transcribe_file_stream(body.path, body.language)
+            duration = float(info.duration)
+            collected_segments: list[dict] = []
+            last_wall = time.time()
+
+            loop.call_soon_threadsafe(
+                queue.put_nowait,
+                {"type": "progress", "current_sec": 0.0, "total_sec": duration},
+            )
+
+            for seg in segments:
+                collected_segments.append({
+                    "start": float(seg.start),
+                    "end": float(seg.end),
+                    "text": seg.text,
+                })
+                now = time.time()
+                if now - last_wall >= progress_interval_sec:
+                    loop.call_soon_threadsafe(
+                        queue.put_nowait,
+                        {"type": "progress", "current_sec": float(seg.end), "total_sec": duration},
+                    )
+                    last_wall = now
+
+            processing_time = round(time.time() - t0, 3)
+            logger.info(
+                "File transcribed: {} | {:.1f}s audio in {:.2f}s | lang={} | segments={}",
+                body.path,
+                duration,
+                processing_time,
+                info.language,
+                len(collected_segments),
+            )
+            loop.call_soon_threadsafe(queue.put_nowait, {
+                "type": "result",
+                "segments": collected_segments,
+                "language": info.language,
+                "duration_sec": duration,
+                "processing_time_sec": processing_time,
+            })
+        except Exception as exc:
+            logger.error("File transcribe failed: {}", exc)
+            loop.call_soon_threadsafe(queue.put_nowait, {"type": "error", "message": str(exc)})
+        finally:
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    async def stream():
+        while True:
+            msg = await queue.get()
+            if msg is None:
+                break
+            yield json.dumps(msg, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 
 @app.post("/reload", response_model=ReloadResponse, summary="Reload model with new settings", tags=["System"], status_code=200)

@@ -34,6 +34,13 @@ export class TranscriptStore implements vscode.Disposable {
         this.onChangedEmitter.fire();
     }
 
+    refresh(): void {
+        if (!this.watcher) {
+            this.startWatching();
+        }
+        this.onChangedEmitter.fire();
+    }
+
     async list(): Promise<TranscriptFile[]> {
         if (!fs.existsSync(this.storageDir)) {
             return [];
