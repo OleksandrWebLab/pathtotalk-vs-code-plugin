@@ -149,26 +149,18 @@ body {
     overflow: hidden;
 }
 
-.expand-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--vscode-textLink-foreground);
-    font-size: 11px;
-    padding: 1px 0;
-    margin-top: 2px;
-    display: block;
-}
-
 .record-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     margin-top: 4px;
-    opacity: 0;
-    transition: opacity 0.15s;
 }
-.record-card:hover .record-actions { opacity: 1; }
-.record-actions.always-visible { opacity: 1; }
+
+.show-more-row {
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+}
 
 .action-btn {
     background: none;
