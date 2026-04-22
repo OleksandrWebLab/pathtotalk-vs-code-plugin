@@ -7,6 +7,7 @@ export interface VoiceRecord {
     model: string;
     starred: boolean;
     tags: string[];
+    copied?: boolean;
 }
 
 export interface LogFilter {

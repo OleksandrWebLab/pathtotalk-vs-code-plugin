@@ -66,8 +66,11 @@ export const PANEL_SCRIPT = `
     }
 
     function buildCard(record) {
+        const isUnread = record.copied === false;
         const card = document.createElement('div');
-        card.className = 'record-card' + (record.starred ? ' starred' : '');
+        card.className = 'record-card'
+            + (record.starred ? ' starred' : '')
+            + (isUnread ? ' unread' : '');
         card.dataset.id = record.id;
 
         const meta = document.createElement('div');
@@ -77,6 +80,7 @@ export const PANEL_SCRIPT = `
         const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         meta.innerHTML =
+            (isUnread ? '<span class="unread-dot" title="Not copied yet"></span>' : '') +
             '<span class="record-time">' + escHtml(time) + '</span>' +
             '<span class="record-lang">' + escHtml(record.language) + '</span>' +
             '<span class="record-dur">' + record.duration_sec.toFixed(1) + 's</span>' +
@@ -162,12 +166,9 @@ export const PANEL_SCRIPT = `
 
             const delBtn = document.createElement('button');
             delBtn.className = 'action-btn';
-            delBtn.textContent = '\u{1F5D1}';
-            delBtn.title = 'Delete';
+            delBtn.textContent = '\u{1F5D1} Delete';
             delBtn.onclick = function() {
-                if (confirm('Delete this record?')) {
-                    vscode.postMessage({ type: 'delete', id: record.id });
-                }
+                vscode.postMessage({ type: 'delete', id: record.id });
             };
 
             actions.appendChild(copyBtn);
