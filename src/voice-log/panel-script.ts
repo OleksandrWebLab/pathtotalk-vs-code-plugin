@@ -1,9 +1,11 @@
 export const PANEL_SCRIPT = `
 (function() {
     const vscode = acquireVsCodeApi();
+    const INITIAL_VISIBLE_UNSTARRED = 3;
     let allRecords = [];
     let expandedIds = new Set();
     let editingId = null;
+    let showingAllUnstarred = false;
 
     document.getElementById('clearAllBtn').onclick = function() {
         vscode.postMessage({ type: 'clearAll' });
@@ -14,6 +16,7 @@ export const PANEL_SCRIPT = `
     searchInput.addEventListener('input', function() {
         clearTimeout(searchTimer);
         searchTimer = setTimeout(function() {
+            showingAllUnstarred = false;
             vscode.postMessage({ type: 'search', query: searchInput.value });
         }, 200);
     });
@@ -55,13 +58,32 @@ export const PANEL_SCRIPT = `
         }
 
         const unstarred = records.filter(r => !r.starred);
-        const groups = groupByDay(unstarred);
+        const visibleUnstarred = showingAllUnstarred
+            ? unstarred
+            : unstarred.slice(0, INITIAL_VISIBLE_UNSTARRED);
+        const hiddenCount = unstarred.length - visibleUnstarred.length;
+
+        const groups = groupByDay(visibleUnstarred);
         for (const [day, dayRecords] of groups) {
             const label = document.createElement('div');
             label.className = 'day-label';
             label.textContent = day;
             list.appendChild(label);
             dayRecords.forEach(r => list.appendChild(buildCard(r)));
+        }
+
+        if (hiddenCount > 0) {
+            const showMoreWrap = document.createElement('div');
+            showMoreWrap.className = 'show-more-row';
+            const showMoreBtn = document.createElement('button');
+            showMoreBtn.className = 'action-btn';
+            showMoreBtn.textContent = 'Show ' + hiddenCount + ' more record' + (hiddenCount === 1 ? '' : 's');
+            showMoreBtn.onclick = function() {
+                showingAllUnstarred = true;
+                renderRecords(allRecords);
+            };
+            showMoreWrap.appendChild(showMoreBtn);
+            list.appendChild(showMoreWrap);
         }
     }
 
@@ -113,7 +135,7 @@ export const PANEL_SCRIPT = `
             };
 
             const editActions = document.createElement('div');
-            editActions.className = 'record-actions always-visible';
+            editActions.className = 'record-actions';
             editActions.appendChild(saveBtn);
             editActions.appendChild(cancelBtn);
             card.appendChild(editActions);
@@ -123,9 +145,12 @@ export const PANEL_SCRIPT = `
             textEl.textContent = record.text;
             card.appendChild(textEl);
 
+            const actions = document.createElement('div');
+            actions.className = 'record-actions';
+
             if (isLong) {
                 const expandBtn = document.createElement('button');
-                expandBtn.className = 'expand-btn';
+                expandBtn.className = 'action-btn';
                 expandBtn.textContent = isExpanded ? 'Show less' : 'Show more';
                 expandBtn.onclick = function() {
                     if (isExpanded) {
@@ -135,11 +160,8 @@ export const PANEL_SCRIPT = `
                     }
                     renderRecords(allRecords);
                 };
-                card.appendChild(expandBtn);
+                actions.appendChild(expandBtn);
             }
-
-            const actions = document.createElement('div');
-            actions.className = 'record-actions';
 
             const copyBtn = document.createElement('button');
             copyBtn.className = 'action-btn copy-btn';

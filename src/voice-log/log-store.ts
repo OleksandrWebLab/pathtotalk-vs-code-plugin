@@ -36,14 +36,14 @@ export class LogStore implements vscode.Disposable {
             throw new Error(`Record not found: ${id}`);
         }
         records[index] = { ...records[index], ...updates };
-        await this.writeAll(records);
+        await this.writeAll(records.slice().reverse());
         this.onRecordUpdatedEmitter.fire(records[index]);
     }
 
     async delete(id: string): Promise<void> {
         const records = await this.list();
         const filtered = records.filter(r => r.id !== id);
-        await this.writeAll(filtered);
+        await this.writeAll(filtered.slice().reverse());
         this.onRecordDeletedEmitter.fire(id);
     }
 
@@ -67,11 +67,13 @@ export class LogStore implements vscode.Disposable {
             }
         }
 
+        records.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
         if (!filter) {
-            return records.reverse(); // newest first
+            return records;
         }
 
-        const filtered = records.filter(r => {
+        return records.filter(r => {
             if (filter.starred !== undefined && r.starred !== filter.starred) {
                 return false;
             }
@@ -86,8 +88,6 @@ export class LogStore implements vscode.Disposable {
             }
             return true;
         });
-
-        return filtered.reverse();
     }
 
     async search(query: string): Promise<VoiceRecord[]> {
