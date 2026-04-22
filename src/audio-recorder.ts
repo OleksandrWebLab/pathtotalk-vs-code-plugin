@@ -5,7 +5,9 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
-export type RecorderState = 'idle' | 'recording' | 'processing';
+export type RecorderState = 'idle' | 'recording' | 'finishing' | 'processing';
+
+const DEFAULT_STOP_DELAY_MS = 1000;
 
 export interface RecordingResult {
     wavBuffer: Buffer;
@@ -20,14 +22,10 @@ export class AudioRecorder implements vscode.Disposable {
     private process: cp.ChildProcess | null = null;
     private tempFile: string | null = null;
     private startTime: number = 0;
-    private levelTimer: NodeJS.Timeout | null = null;
     private _state: RecorderState = 'idle';
 
     private readonly onStateChangedEmitter = new vscode.EventEmitter<RecorderState>();
     readonly onStateChanged = this.onStateChangedEmitter.event;
-
-    private readonly onLevelEmitter = new vscode.EventEmitter<number>();
-    readonly onLevel = this.onLevelEmitter.event;
 
     get state(): RecorderState {
         return this._state;
@@ -64,7 +62,6 @@ export class AudioRecorder implements vscode.Disposable {
 
         this.startTime = Date.now();
         this.setState('recording');
-        this.startFakeLevelMonitor();
     }
 
     async stop(): Promise<RecordingResult> {
@@ -72,7 +69,14 @@ export class AudioRecorder implements vscode.Disposable {
             throw new Error('Not recording');
         }
 
-        this.stopFakeLevelMonitor();
+        this.setState('finishing');
+
+        const tailDelayMs = vscode.workspace.getConfiguration('puthtotalk')
+            .get<number>('stopDelayMs', DEFAULT_STOP_DELAY_MS);
+        if (tailDelayMs > 0) {
+            await new Promise(resolve => setTimeout(resolve, tailDelayMs));
+        }
+
         this.setState('processing');
 
         const tempFile = this.tempFile;
@@ -94,6 +98,20 @@ export class AudioRecorder implements vscode.Disposable {
 
         this.setState('idle');
         return { wavBuffer, durationSec };
+    }
+
+    async cancel(): Promise<void> {
+        if (this._state !== 'recording' && this._state !== 'finishing') {
+            return;
+        }
+        const tempFile = this.tempFile;
+        await this.stopProcess();
+        if (tempFile && fs.existsSync(tempFile)) {
+            fs.unlinkSync(tempFile);
+        }
+        this.tempFile = null;
+        this.process = null;
+        this.setState('idle');
     }
 
     private async stopProcess(): Promise<void> {
@@ -158,25 +176,7 @@ export class AudioRecorder implements vscode.Disposable {
         });
     }
 
-    private startFakeLevelMonitor(): void {
-        let tick = 0;
-        this.levelTimer = setInterval(() => {
-            // Sine-wave pulse so the status bar indicator animates
-            const level = 0.3 + 0.3 * Math.sin(tick * 0.4);
-            tick++;
-            this.onLevelEmitter.fire(level);
-        }, 100);
-    }
-
-    private stopFakeLevelMonitor(): void {
-        if (this.levelTimer) {
-            clearInterval(this.levelTimer);
-            this.levelTimer = null;
-        }
-    }
-
     private cleanup(): void {
-        this.stopFakeLevelMonitor();
         if (this.tempFile && fs.existsSync(this.tempFile)) {
             fs.unlinkSync(this.tempFile);
             this.tempFile = null;
@@ -194,6 +194,5 @@ export class AudioRecorder implements vscode.Disposable {
         this.process?.kill('SIGKILL');
         this.cleanup();
         this.onStateChangedEmitter.dispose();
-        this.onLevelEmitter.dispose();
     }
 }
