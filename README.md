@@ -1,6 +1,6 @@
 # PuthToTalk — Voice Input for VS Code
 
-Local voice input via Whisper. Dictate prompts and text, copy from the Voice Log.
+Local voice input and media transcription via Whisper. Dictate prompts and text into the Voice Log, or drop an audio/video file and get a timestamped transcript — all through a single local Whisper server.
 
 ---
 
@@ -101,16 +101,27 @@ Default keybindings:
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+Shift+M` | Start / stop recording (toggle) |
-| `Escape` | Stop recording (while recording) |
+| `Ctrl+Alt+M` | Cancel recording — discard audio, no transcription (while recording) |
 | `Ctrl+Shift+L` | Open Voice Log |
+
+The `Voice: Recording` status bar item is also clickable — left-click toggles recording on and off. When pressed Stop, the recorder keeps capturing for an extra `puthtotalk.stopDelayMs` milliseconds (default 1s) so the last words aren't cut off.
 
 Available commands (Command Palette → `Voice: ...`):
 
-- `Voice: Start Recording` / `Voice: Stop Recording`
+**Voice Log (short dictation records)**
+- `Voice: Start / Stop Recording` (toggle — bound to `Ctrl+Shift+M` and the status bar)
+- `Voice: Cancel Recording (discard)` — stop without transcribing (bound to `Ctrl+Alt+M` while recording)
+- `Voice: Start Recording` / `Voice: Stop Recording` (explicit, non-toggle variants)
 - `Voice: Show Log`
 - `Voice: Copy Last Transcription`
 - `Voice: Search Log`
 - `Voice: Export Log as Markdown`
+
+**Voice Transcripts (audio / video file transcription)**
+- `Voice: Transcribe File...` — pick an audio or video file, transcribe into a timestamped Markdown file
+- `Voice: Show Transcripts` — open the Transcripts panel
+
+**Model / server**
 - `Voice: Change Model` — pick a Whisper model (`tiny` … `large-v3`)
 - `Voice: Change Language` — pick transcription language or `auto`
 - `Voice: Change Compute Device` — `auto` / `cuda:0` / `cuda:1` / `cpu`
@@ -128,6 +139,7 @@ Open VS Code settings (`Ctrl+,`) and search for `puthtotalk`. Key options:
 - `puthtotalk.computeType` — `auto` / `float16` / `int8_float16` / `int8` / `float32`
 - `puthtotalk.vadFilter` — enable voice activity detection (default `true`)
 - `puthtotalk.beamSize` — beam search size (1–10, default 5)
+- `puthtotalk.stopDelayMs` — extra recording time after Stop (ms, default `1000`)
 - `puthtotalk.log.*` — Voice Log behavior (max records, grouping, notifications, gitignore handling)
 
 ---
@@ -136,11 +148,19 @@ Open VS Code settings (`Ctrl+,`) and search for `puthtotalk`. Key options:
 
 - A bundled Python FastAPI server (`python/server.py`) runs `faster-whisper` for transcription
 - The extension spawns the server on activation, picks a free port, and talks to it over HTTP
-- Audio is captured in the webview sidebar (`Voice Log` view) and sent to the server as a WAV blob
-- Transcriptions are appended to a per-workspace JSONL log (`.vscode/voice-log.jsonl` or global storage for workspaces without a folder)
+- Two sidebar views share the same server:
+  - **Voice Log** — records captured in the webview are sent as WAV, results stored line-by-line
+  - **Voice Transcripts** — a selected media file is transcribed in a streaming request that reports progress and returns timestamped segments
+- All persistent data lives under `.vscode/puthtotalk/` inside the workspace:
+  - `voice-log.jsonl` — dictation history (newest-first, `copied` flag clears the "unread" highlight after you copy)
+  - `<YYYY-MM-DD_HH-mm-ss>_<source-name>.md` — one file per transcribed recording, each with a JSON metadata header, summary (duration / language / model) and `[HH:MM:SS]` timestamps every 60s
+- Workspaces without a folder fall back to the extension's global storage
+
+On first activation, a legacy `.vscode/voice-log.jsonl` is auto-migrated into the new `.vscode/puthtotalk/` directory.
 
 Requirements on the host:
 
 - Docker + Docker Compose (only for building from source)
 - Python 3.10+ available as `python3` (the setup wizard uses it to create the venv)
+- `ffmpeg` in `PATH` — required only for **Voice: Transcribe File...**, since `faster-whisper` shells out to it for video and non-WAV audio
 - Optional: NVIDIA GPU with CUDA for faster transcription (`nvidia-smi` is used to detect it)
