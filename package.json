@@ -91,6 +91,14 @@
       {
         "command": "puthtotalk.resetExtension",
         "title": "Voice: Reset Extension"
+      },
+      {
+        "command": "puthtotalk.transcribeFile",
+        "title": "Voice: Transcribe File..."
+      },
+      {
+        "command": "puthtotalk.showTranscripts",
+        "title": "Voice: Show Transcripts"
       }
     ],
     "keybindings": [
@@ -120,6 +128,11 @@
           "type": "webview",
           "id": "puthtotalk.voiceLog",
           "name": "Voice Log"
+        },
+        {
+          "type": "webview",
+          "id": "puthtotalk.voiceTranscripts",
+          "name": "Voice Transcripts"
         }
       ]
     },
@@ -127,7 +140,7 @@
       "activitybar": [
         {
           "id": "puthtotalk-sidebar",
-          "title": "Voice Log",
+          "title": "PuthToTalk",
           "icon": "media/icons/microphone.svg"
         }
       ]

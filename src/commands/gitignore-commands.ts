@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 
 import { CommandDeps } from './types';
 import { LogLocation } from '../voice-log/log-location';
@@ -12,12 +11,11 @@ export function registerGitignoreCommands(deps: CommandDeps): void {
     extensionContext.subscriptions.push(
         vscode.commands.registerCommand('puthtotalk.addLogToGitignore', async () => {
             const location = LogLocation.resolve(globalStorageDir);
-            if (location.type === 'fallback') {
+            if (location.type === 'fallback' || !location.workspaceRoot) {
                 vscode.window.showWarningMessage('No workspace open.');
                 return;
             }
-            const workspaceRoot = path.dirname(path.dirname(location.path));
-            const manager = new GitignoreManager(workspaceRoot);
+            const manager = new GitignoreManager(location.workspaceRoot);
             const result = await manager.ensureEntry(VOICE_LOG_GITIGNORE_PATTERN);
             if (result.status === 'added') {
                 vscode.window.showInformationMessage(`Added ${VOICE_LOG_GITIGNORE_PATTERN} to .gitignore.`);
@@ -30,12 +28,11 @@ export function registerGitignoreCommands(deps: CommandDeps): void {
 
         vscode.commands.registerCommand('puthtotalk.removeLogFromGitignore', async () => {
             const location = LogLocation.resolve(globalStorageDir);
-            if (location.type === 'fallback') {
+            if (location.type === 'fallback' || !location.workspaceRoot) {
                 vscode.window.showWarningMessage('No workspace open.');
                 return;
             }
-            const workspaceRoot = path.dirname(path.dirname(location.path));
-            const manager = new GitignoreManager(workspaceRoot);
+            const manager = new GitignoreManager(location.workspaceRoot);
             await manager.removeEntry(VOICE_LOG_GITIGNORE_PATTERN);
             vscode.window.showInformationMessage(`Removed ${VOICE_LOG_GITIGNORE_PATTERN} from .gitignore.`);
         }),
