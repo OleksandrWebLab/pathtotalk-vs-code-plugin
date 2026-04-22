@@ -29,6 +29,14 @@
         "title": "Voice: Stop Recording"
       },
       {
+        "command": "puthtotalk.toggleRecording",
+        "title": "Voice: Start / Stop Recording"
+      },
+      {
+        "command": "puthtotalk.cancelRecording",
+        "title": "Voice: Cancel Recording (discard)"
+      },
+      {
         "command": "puthtotalk.showLog",
         "title": "Voice: Show Log"
       },
@@ -103,18 +111,12 @@
     ],
     "keybindings": [
       {
-        "command": "puthtotalk.startRecording",
-        "key": "ctrl+shift+m",
-        "when": "!puthtotalk.isRecording"
+        "command": "puthtotalk.toggleRecording",
+        "key": "ctrl+shift+m"
       },
       {
-        "command": "puthtotalk.stopRecording",
-        "key": "ctrl+shift+m",
-        "when": "puthtotalk.isRecording"
-      },
-      {
-        "command": "puthtotalk.stopRecording",
-        "key": "escape",
+        "command": "puthtotalk.cancelRecording",
+        "key": "ctrl+alt+m",
         "when": "puthtotalk.isRecording"
       },
       {
@@ -213,6 +215,13 @@
           "type": "boolean",
           "default": true,
           "description": "Enable voice activity detection filter"
+        },
+        "puthtotalk.stopDelayMs": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 0,
+          "maximum": 5000,
+          "description": "Extra recording time (ms) after Stop is pressed, so the last words are not cut off"
         },
         "puthtotalk.beamSize": {
           "type": "number",

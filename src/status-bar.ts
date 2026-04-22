@@ -20,13 +20,12 @@ export class StatusBar implements vscode.Disposable {
             vscode.StatusBarAlignment.Right,
             100
         );
-        this.item.command = 'puthtotalk.showLog';
+        this.item.command = 'puthtotalk.toggleRecording';
         this.item.show();
 
         this.disposables.push(
             server.onStatusChanged(() => this.update()),
             recorder.onStateChanged(() => this.update()),
-            recorder.onLevel(level => this.updateLevel(level)),
         );
 
         this.subscribeToLogStore();
@@ -59,7 +58,14 @@ export class StatusBar implements vscode.Disposable {
 
         if (recorderState === 'recording') {
             this.item.text = '$(record) Voice: Recording';
-            this.item.tooltip = 'Recording - release Ctrl+Shift+M to stop';
+            this.item.tooltip = 'Recording - click or press Ctrl+Shift+M to stop, Ctrl+Alt+M to cancel';
+            this.item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+            return;
+        }
+
+        if (recorderState === 'finishing') {
+            this.item.text = '$(record) Voice: Finishing';
+            this.item.tooltip = 'Capturing the last second before stopping...';
             this.item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
             return;
         }
@@ -88,7 +94,7 @@ export class StatusBar implements vscode.Disposable {
                 const count = this.logStore.recordCount;
                 const suffix = this.isFallback ? ' (no project)' : '';
                 this.item.text = `$(mic) Voice: ${count}${suffix}`;
-                this.item.tooltip = `${count} voice record${count !== 1 ? 's' : ''} - click to open Voice Log`;
+                this.item.tooltip = `${count} voice record${count !== 1 ? 's' : ''} - click to start recording (Ctrl+Shift+M)`;
                 break;
             }
 
@@ -98,15 +104,6 @@ export class StatusBar implements vscode.Disposable {
                 this.item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
                 break;
         }
-    }
-
-    private updateLevel(level: number): void {
-        if (this.recorder.state !== 'recording') {
-            return;
-        }
-        const bars = Math.round(level * 5);
-        const indicator = '▁▂▃▄▅'.slice(0, Math.max(1, bars)) || '▁';
-        this.item.text = `$(record) Voice: ${indicator}`;
     }
 
     dispose(): void {

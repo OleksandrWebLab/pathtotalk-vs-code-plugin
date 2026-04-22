@@ -9,6 +9,24 @@ export function registerRecordingCommands(deps: CommandDeps): void {
     const { extensionContext, server, recorder, apiClient, getLogStore, globalStorageDir } = deps;
 
     extensionContext.subscriptions.push(
+        vscode.commands.registerCommand('puthtotalk.toggleRecording', async () => {
+            if (recorder.state === 'recording') {
+                await vscode.commands.executeCommand('puthtotalk.stopRecording');
+                return;
+            }
+            if (recorder.state === 'idle') {
+                await vscode.commands.executeCommand('puthtotalk.startRecording');
+            }
+        }),
+
+        vscode.commands.registerCommand('puthtotalk.cancelRecording', async () => {
+            await vscode.commands.executeCommand('setContext', 'puthtotalk.isRecording', false);
+            if (recorder.state !== 'recording' && recorder.state !== 'finishing') {
+                return;
+            }
+            await recorder.cancel();
+        }),
+
         vscode.commands.registerCommand('puthtotalk.startRecording', async () => {
             if (server.status !== 'ready') {
                 vscode.window.showWarningMessage('PuthToTalk: Server is not ready yet.');
