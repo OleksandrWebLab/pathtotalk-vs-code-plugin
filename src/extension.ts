@@ -16,6 +16,7 @@ import { registerLogCommands } from './commands/log-commands';
 import { registerGitignoreCommands } from './commands/gitignore-commands';
 import { registerModelCommands } from './commands/model-commands';
 import { registerServerCommands } from './commands/server-commands';
+import { registerTranscribeFileCommand } from './commands/transcribe-file-command';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const output = vscode.window.createOutputChannel('PuthToTalk');
@@ -87,15 +88,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
     );
 
-    context.subscriptions.push(
-        vscode.commands.registerCommand('puthtotalk.showTranscripts', () => {
-            vscode.commands.executeCommand('puthtotalk.voiceTranscripts.focus');
-        }),
-        vscode.commands.registerCommand('puthtotalk.transcribeFile', () => {
-            vscode.window.showInformationMessage('Transcribe File: coming in next step.');
-        }),
-    );
-
     const deps: CommandDeps = {
         extensionContext: context,
         server,
@@ -112,6 +104,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerGitignoreCommands(deps);
     registerModelCommands(deps);
     registerServerCommands(deps);
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('puthtotalk.showTranscripts', () => {
+            vscode.commands.executeCommand('puthtotalk.voiceTranscripts.focus');
+        }),
+        registerTranscribeFileCommand(deps, transcriptStoreRef),
+    );
 
     if (vscode.workspace.getConfiguration('puthtotalk.log').get<boolean>('autoOpenPanel', false)) {
         vscode.commands.executeCommand('puthtotalk.showLog');

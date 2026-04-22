@@ -12,6 +12,24 @@ export interface HealthResult {
     uptimeSec: number;
 }
 
+export interface TranscribedSegment {
+    start: number;
+    end: number;
+    text: string;
+}
+
+export interface FileTranscribeResult {
+    segments: TranscribedSegment[];
+    language: string;
+    durationSec: number;
+    processingTimeSec: number;
+}
+
+export interface FileTranscribeProgress {
+    currentSec: number;
+    totalSec: number;
+}
+
 export class ApiClient {
     private baseUrl: string = '';
     private token: string = '';
@@ -62,6 +80,73 @@ export class ApiClient {
             durationSec: body.duration_sec,
             processingTimeSec: body.processing_time_sec,
         };
+    }
+
+    async transcribeFile(
+        filePath: string,
+        language: string | null,
+        onProgress: (progress: FileTranscribeProgress) => void,
+    ): Promise<FileTranscribeResult> {
+        const response = await fetch(`${this.baseUrl}/transcribe-file`, {
+            method: 'POST',
+            headers: {
+                'X-Extension-Token': this.token,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ path: filePath, language: language ?? undefined }),
+        });
+
+        if (!response.ok) {
+            const text = await response.text().catch(() => '');
+            throw new Error(`Transcribe-file failed: HTTP ${response.status} - ${text}`);
+        }
+        if (!response.body) {
+            throw new Error('Transcribe-file: no response body');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalResult: FileTranscribeResult | null = null;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+                break;
+            }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) {
+                    continue;
+                }
+                const msg = JSON.parse(trimmed) as
+                    | { type: 'progress'; current_sec: number; total_sec: number }
+                    | { type: 'result'; segments: TranscribedSegment[]; language: string; duration_sec: number; processing_time_sec: number }
+                    | { type: 'error'; message: string };
+
+                if (msg.type === 'progress') {
+                    onProgress({ currentSec: msg.current_sec, totalSec: msg.total_sec });
+                } else if (msg.type === 'result') {
+                    finalResult = {
+                        segments: msg.segments,
+                        language: msg.language,
+                        durationSec: msg.duration_sec,
+                        processingTimeSec: msg.processing_time_sec,
+                    };
+                } else if (msg.type === 'error') {
+                    throw new Error(msg.message);
+                }
+            }
+        }
+
+        if (!finalResult) {
+            throw new Error('Transcribe-file: stream ended without result');
+        }
+        return finalResult;
     }
 
     async health(): Promise<HealthResult> {
