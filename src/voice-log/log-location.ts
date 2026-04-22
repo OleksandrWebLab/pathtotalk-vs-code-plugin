@@ -1,11 +1,16 @@
-import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
+import * as vscode from 'vscode';
+
+import { PUTHTOTALK_STORAGE_DIR, VOICE_LOG_FILE } from '../constants';
 
 export type LogLocationType = 'project' | 'fallback';
 
 export interface LogLocationResult {
     type: LogLocationType;
     path: string;
+    storageDir: string;
+    workspaceRoot?: string;
     projectName?: string;
 }
 
@@ -14,20 +19,41 @@ export class LogLocation {
         const folders = vscode.workspace.workspaceFolders;
 
         if (!folders || folders.length === 0) {
+            const storageDir = path.join(globalStorageDir, 'puthtotalk-fallback');
             return {
                 type: 'fallback',
-                path: path.join(globalStorageDir, 'voice-logs-fallback', '_global.jsonl'),
+                path: path.join(storageDir, VOICE_LOG_FILE),
+                storageDir,
             };
         }
 
         const config = vscode.workspace.getConfiguration('puthtotalk.log');
         const folderIndex = config.get<number>('multiRootFolder', 0);
         const folder = folders[Math.min(folderIndex, folders.length - 1)];
+        const workspaceRoot = folder.uri.fsPath;
+        const storageDir = path.join(workspaceRoot, PUTHTOTALK_STORAGE_DIR);
 
         return {
             type: 'project',
-            path: path.join(folder.uri.fsPath, '.vscode', 'voice-log.jsonl'),
+            path: path.join(storageDir, VOICE_LOG_FILE),
+            storageDir,
+            workspaceRoot,
             projectName: folder.name,
         };
+    }
+
+    static migrateLegacyIfNeeded(result: LogLocationResult): void {
+        if (!result.workspaceRoot) {
+            return;
+        }
+        const legacyPath = path.join(result.workspaceRoot, '.vscode', VOICE_LOG_FILE);
+        if (!fs.existsSync(legacyPath)) {
+            return;
+        }
+        if (fs.existsSync(result.path)) {
+            return;
+        }
+        fs.mkdirSync(result.storageDir, { recursive: true });
+        fs.renameSync(legacyPath, result.path);
     }
 }

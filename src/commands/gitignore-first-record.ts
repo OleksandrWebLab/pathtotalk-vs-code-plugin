@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as path from 'path';
 
 import { LogLocation } from '../voice-log/log-location';
 import { GitignoreManager } from '../voice-log/gitignore-manager';
@@ -10,14 +9,11 @@ type GitignoreBehavior = 'auto-add' | 'ask' | 'never';
 
 export async function ensureGitignoreForFirstRecord(globalStorageDir: string): Promise<void> {
     const location = LogLocation.resolve(globalStorageDir);
-    if (location.type === 'fallback') {
+    if (location.type === 'fallback' || !location.workspaceRoot) {
         return;
     }
 
-    const vscodeDirPath = path.dirname(location.path);
-    const workspaceRoot = path.dirname(vscodeDirPath);
-
-    fs.mkdirSync(vscodeDirPath, { recursive: true });
+    fs.mkdirSync(location.storageDir, { recursive: true });
 
     const behavior = vscode.workspace
         .getConfiguration('puthtotalk')
@@ -27,7 +23,7 @@ export async function ensureGitignoreForFirstRecord(globalStorageDir: string): P
         return;
     }
 
-    const manager = new GitignoreManager(workspaceRoot);
+    const manager = new GitignoreManager(location.workspaceRoot);
     if (!manager.hasGitRepo()) {
         return;
     }

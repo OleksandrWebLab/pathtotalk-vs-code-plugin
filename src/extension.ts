@@ -7,6 +7,8 @@ import { ApiClient } from './api-client';
 import { LogStore } from './voice-log/log-store';
 import { LogLocation } from './voice-log/log-location';
 import { VoiceLogPanel } from './voice-log/panel';
+import { TranscriptStore } from './voice-transcripts/transcript-store';
+import { VoiceTranscriptsPanel } from './voice-transcripts/panel';
 import { StatusBar } from './status-bar';
 import { CommandDeps } from './commands/types';
 import { registerRecordingCommands } from './commands/recording-commands';
@@ -45,6 +47,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     const globalStorageDir = context.globalStorageUri.fsPath;
     const logStoreRef: { current: LogStore } = { current: createLogStore(globalStorageDir) };
+    const transcriptStoreRef: { current: TranscriptStore } = { current: createTranscriptStore(globalStorageDir) };
 
     const recorder = new AudioRecorder();
     context.subscriptions.push(recorder);
@@ -53,6 +56,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider('puthtotalk.voiceLog', voiceLogPanel),
         voiceLogPanel,
+    );
+
+    const voiceTranscriptsPanel = new VoiceTranscriptsPanel(transcriptStoreRef.current, context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider('puthtotalk.voiceTranscripts', voiceTranscriptsPanel),
+        voiceTranscriptsPanel,
+        transcriptStoreRef.current,
     );
 
     const statusBar = new StatusBar(server, recorder, logStoreRef.current);
@@ -71,7 +81,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         vscode.workspace.onDidChangeWorkspaceFolders(() => {
             logStoreRef.current = createLogStore(globalStorageDir);
             voiceLogPanel.updateLogStore(logStoreRef.current);
+            transcriptStoreRef.current = createTranscriptStore(globalStorageDir);
+            voiceTranscriptsPanel.updateStore(transcriptStoreRef.current);
             updateStatusBarFallback(statusBar, globalStorageDir);
+        }),
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('puthtotalk.showTranscripts', () => {
+            vscode.commands.executeCommand('puthtotalk.voiceTranscripts.focus');
+        }),
+        vscode.commands.registerCommand('puthtotalk.transcribeFile', () => {
+            vscode.window.showInformationMessage('Transcribe File: coming in next step.');
         }),
     );
 
@@ -103,7 +124,13 @@ export async function deactivate(): Promise<void> {
 
 function createLogStore(globalStorageDir: string): LogStore {
     const location = LogLocation.resolve(globalStorageDir);
+    LogLocation.migrateLegacyIfNeeded(location);
     return new LogStore(location.path);
+}
+
+function createTranscriptStore(globalStorageDir: string): TranscriptStore {
+    const location = LogLocation.resolve(globalStorageDir);
+    return new TranscriptStore(location.storageDir);
 }
 
 function updateStatusBarFallback(statusBar: StatusBar, globalStorageDir: string): void {
