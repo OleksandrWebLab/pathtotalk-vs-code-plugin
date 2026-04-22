@@ -73,6 +73,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
                 model: config.get<string>('model', 'large-v3'),
                 starred: false,
                 tags: [],
+                copied: false,
             };
 
             await getLogStore().add(record);

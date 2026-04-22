@@ -107,6 +107,17 @@ body {
 }
 .record-card:hover { background: var(--vscode-list-hoverBackground); }
 .record-card.starred { border-left: 2px solid var(--vscode-charts-yellow); }
+.record-card.unread { background: color-mix(in srgb, var(--vscode-charts-green) 8%, transparent); }
+.record-card.unread:hover { background: color-mix(in srgb, var(--vscode-charts-green) 14%, transparent); }
+
+.unread-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--vscode-charts-green);
+    flex-shrink: 0;
+}
 
 .record-meta {
     display: flex;
@@ -151,7 +162,7 @@ body {
 
 .record-actions {
     display: flex;
-    gap: 4px;
+    gap: 12px;
     margin-top: 4px;
     opacity: 0;
     transition: opacity 0.15s;
@@ -161,16 +172,14 @@ body {
 
 .action-btn {
     background: none;
-    border: 1px solid var(--vscode-button-secondaryBorder, transparent);
+    border: none;
     cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 3px;
+    color: var(--vscode-textLink-foreground);
     font-size: 11px;
-    color: var(--vscode-button-secondaryForeground);
-    background: var(--vscode-button-secondaryBackground);
-    transition: background 0.1s;
+    padding: 1px 0;
+    transition: color 0.1s;
 }
-.action-btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.action-btn:hover { text-decoration: underline; }
 .action-btn.copy-btn.copied { color: var(--vscode-charts-green); }
 
 .edit-area {

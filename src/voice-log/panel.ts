@@ -91,9 +91,17 @@ export class VoiceLogPanel implements vscode.WebviewViewProvider, vscode.Disposa
                 await this.logStore.update(msg.id, { starred: msg.starred });
                 break;
 
-            case 'delete':
-                await this.logStore.delete(msg.id);
+            case 'delete': {
+                const confirm = await vscode.window.showWarningMessage(
+                    'Delete this voice record?',
+                    { modal: true },
+                    'Delete'
+                );
+                if (confirm === 'Delete') {
+                    await this.logStore.delete(msg.id);
+                }
                 break;
+            }
 
             case 'edit':
                 await this.logStore.update(msg.id, { text: msg.text });
@@ -125,6 +133,9 @@ export class VoiceLogPanel implements vscode.WebviewViewProvider, vscode.Disposa
             return;
         }
         await copyToClipboard(record.text);
+        if (record.copied !== true) {
+            await this.logStore.update(id, { copied: true });
+        }
         this.view?.webview.postMessage({ type: 'copied', id });
     }
 
