@@ -9,6 +9,7 @@ const TRANSCRIPT_EXTENSION = '.md';
 const HEADER_PATTERN = /^<!--\s*puthtotalk:transcript\s+(\{.*\})\s*-->/;
 const SUMMARY_SECTION_PATTERN = /^##\s+Summary\s*$/m;
 const PREAMBLE_BYTES = 4096;
+const NON_TRANSCRIPT_FILES = new Set(['README.md', 'vocabulary.md']);
 
 interface TranscriptHeader {
     source?: string;
@@ -54,6 +55,9 @@ export class TranscriptStore implements vscode.Disposable {
 
         for (const entry of entries) {
             if (!entry.isFile() || !entry.name.endsWith(TRANSCRIPT_EXTENSION)) {
+                continue;
+            }
+            if (NON_TRANSCRIPT_FILES.has(entry.name)) {
                 continue;
             }
 
