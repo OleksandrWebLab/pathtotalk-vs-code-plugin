@@ -41,8 +41,27 @@ export class SetupWizard {
         return (
             this.isPythonAvailable() &&
             this.isVenvReady() &&
+            this.isSetupComplete() &&
             this.isServerScriptDeployed()
         );
+    }
+
+    private isSetupComplete(): boolean {
+        return fs.existsSync(path.join(this.venvDir, '.setup-complete'));
+    }
+
+    private markSetupComplete(): void {
+        fs.writeFileSync(path.join(this.venvDir, '.setup-complete'), 'v1\n', 'utf8');
+    }
+
+    private cleanupFailedVenv(): void {
+        if (fs.existsSync(this.venvDir)) {
+            try {
+                fs.rmSync(this.venvDir, { recursive: true, force: true });
+            } catch {
+                // Ignore - user can reset manually
+            }
+        }
     }
 
     async runFirstTimeSetup(): Promise<boolean> {
@@ -129,11 +148,14 @@ export class SetupWizard {
 
                     await this.context.globalState.update(GLOBAL_STATE_KEYS.setupMode, setupMode);
 
+                    this.markSetupComplete();
+
                     report(`Done! Model "${modelPick}" will be downloaded on first server start.`, 55);
                     return true;
                 } catch (err) {
+                    this.cleanupFailedVenv();
                     vscode.window.showErrorMessage(
-                        `PuthToTalk setup failed: ${err}. Open Output panel for details.`,
+                        `PuthToTalk setup failed: ${err}. The broken environment was removed - run setup again to retry.`,
                     );
                     return false;
                 }

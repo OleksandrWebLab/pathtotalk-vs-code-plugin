@@ -131,17 +131,20 @@ export class ServerManager implements vscode.Disposable {
             env: { ...process.env },
         });
 
-        this.process.stdout?.on('data', (data: Buffer) => {
-            const text = data.toString().trimEnd();
-            this.outputChannel.appendLine(`[server] ${text}`);
-            progressReport?.(text);
-        });
+        const forEachLine = (data: Buffer, tag: string): void => {
+            const raw = data.toString();
+            for (const line of raw.split(/[\r\n]+/)) {
+                const trimmed = line.trim();
+                if (!trimmed) {
+                    continue;
+                }
+                this.outputChannel.appendLine(`[${tag}] ${trimmed}`);
+                progressReport?.(trimmed);
+            }
+        };
 
-        this.process.stderr?.on('data', (data: Buffer) => {
-            const text = data.toString().trimEnd();
-            this.outputChannel.appendLine(`[server err] ${text}`);
-            progressReport?.(text);
-        });
+        this.process.stdout?.on('data', (data: Buffer) => forEachLine(data, 'server'));
+        this.process.stderr?.on('data', (data: Buffer) => forEachLine(data, 'server err'));
 
         this.process.on('exit', (code) => {
             this.outputChannel.appendLine(`[ServerManager] Process exited with code ${code}`);
@@ -150,39 +153,82 @@ export class ServerManager implements vscode.Disposable {
             }
         });
 
-        // Wait for port file (up to 60 seconds)
-        const port = await this.waitForPortFile(portFile, 60000);
-        this._port = port;
+        try {
+            // Wait for port file (up to 60 seconds)
+            const port = await this.waitForPortFile(portFile, 60000);
+            this._port = port;
 
-        // Wait for /health to return ready with visible progress notification
-        await vscode.window.withProgress(
-            {
-                location: vscode.ProgressLocation.Notification,
-                title: `PuthToTalk: Loading model "${model}"...`,
-                cancellable: false,
-            },
-            async (progress) => {
-                progress.report({ message: 'Waiting for server...' });
+            // Wait for /health to return ready with visible progress notification
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: `PuthToTalk: Loading model "${model}"...`,
+                    cancellable: false,
+                },
+                async (progress) => {
+                    progress.report({ message: 'Waiting for server...' });
 
-                progressReport = (line: string): void => {
-                    if (line.includes('Downloading') || line.includes('HTTP Request')) {
-                        const urlMatch = line.match(/\/([^/]+\.(?:bin|json|model|pt|gguf))/);
-                        const fileName = urlMatch ? urlMatch[1] : 'model files';
-                        progress.report({ message: `Downloading ${fileName}...` });
-                    } else if (line.includes('Loading model')) {
-                        progress.report({ message: 'Loading model into memory...' });
-                    } else if (line.includes('on cuda') || line.includes('on cpu')) {
-                        progress.report({ message: 'Model loaded, warming up...' });
+                    let lastPercent = 0;
+                    let lastFileName = '';
+                    const tqdmPattern = /(\d{1,3})%\|[^|]*\|\s*(\S+?)\s*\/\s*(\S+?)(?:\s|\[|$)/;
+
+                    progressReport = (line: string): void => {
+                        const tqdmMatch = line.match(tqdmPattern);
+                        if (tqdmMatch) {
+                            const percent = Math.min(100, parseInt(tqdmMatch[1], 10));
+                            const current = tqdmMatch[2];
+                            const total = tqdmMatch[3];
+                            const fileMatch = line.match(/(\S+\.(?:bin|json|model|pt|gguf|safetensors|onnx|txt))/);
+                            const fileName = fileMatch ? fileMatch[1] : lastFileName || 'model files';
+
+                            if (fileName !== lastFileName) {
+                                lastFileName = fileName;
+                                lastPercent = 0;
+                            }
+
+                            const delta = Math.max(0, percent - lastPercent);
+                            lastPercent = percent;
+                            progress.report({
+                                message: `Downloading ${fileName}: ${percent}% (${current}/${total})`,
+                                increment: delta,
+                            });
+                            return;
+                        }
+
+                        if (line.includes('Downloading') || line.includes('HTTP Request')) {
+                            const urlMatch = line.match(/\/([^/]+\.(?:bin|json|model|pt|gguf|safetensors|onnx))/);
+                            const fileName = urlMatch ? urlMatch[1] : 'model files';
+                            if (fileName !== lastFileName) {
+                                lastFileName = fileName;
+                                lastPercent = 0;
+                            }
+                            progress.report({ message: `Downloading ${fileName}...` });
+                        } else if (line.includes('Loading model')) {
+                            lastFileName = '';
+                            lastPercent = 0;
+                            progress.report({ message: 'Loading model into memory...' });
+                        } else if (line.includes('on cuda') || line.includes('on cpu')) {
+                            progress.report({ message: 'Model loaded, warming up...' });
+                        }
+                    };
+
+                    try {
+                        // 30 minutes is enough for the 3GB large-v3 model on a slow connection.
+                        await this.waitForReady(1800000);
+                    } finally {
+                        progressReport = null;
                     }
-                };
-
-                try {
-                    await this.waitForReady(600000);
-                } finally {
-                    progressReport = null;
                 }
+            );
+        } catch (err) {
+            if (this.process && !this.process.killed) {
+                this.outputChannel.appendLine('[ServerManager] Killing child process after startup timeout/error');
+                this.process.kill('SIGKILL');
             }
-        );
+            this.process = null;
+            this._port = null;
+            throw err;
+        }
 
         this.setStatus('ready');
         this.outputChannel.appendLine(`[ServerManager] Ready on port ${this._port}`);
