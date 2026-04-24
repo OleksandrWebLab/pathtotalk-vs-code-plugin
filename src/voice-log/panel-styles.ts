@@ -110,6 +110,33 @@ body {
 .record-card.unread { background: color-mix(in srgb, var(--vscode-charts-green) 8%, transparent); }
 .record-card.unread:hover { background: color-mix(in srgb, var(--vscode-charts-green) 14%, transparent); }
 
+.record-card.draft {
+    background: color-mix(in srgb, var(--vscode-charts-red) 10%, transparent);
+    border-left: 2px solid var(--vscode-charts-red);
+}
+.record-card.draft:hover { background: color-mix(in srgb, var(--vscode-charts-red) 16%, transparent); }
+
+.draft-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--vscode-charts-red);
+    animation: pulse 1s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.draft-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--vscode-charts-red);
+}
+
+.draft-confirmed { color: var(--vscode-foreground); }
+.draft-pending { color: var(--vscode-descriptionForeground); font-style: italic; }
+
 .unread-dot {
     display: inline-block;
     width: 7px;

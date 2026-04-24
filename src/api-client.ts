@@ -1,3 +1,5 @@
+import WebSocket from 'ws';
+
 export interface TranscribeResult {
     text: string;
     language: string;
@@ -30,12 +32,32 @@ export interface FileTranscribeProgress {
     totalSec: number;
 }
 
+export interface StreamingPartial {
+    confirmedText: string;
+    pendingText: string;
+    durationSec: number;
+}
+
+export interface StreamingFinal {
+    text: string;
+    durationSec: number;
+}
+
+export interface StreamingSession {
+    sendAudio(pcm: Buffer): void;
+    onPartial(listener: (partial: StreamingPartial) => void): void;
+    finalize(): Promise<StreamingFinal>;
+    cancel(): void;
+}
+
 export class ApiClient {
     private baseUrl: string = '';
+    private port: number = 0;
     private token: string = '';
 
     configure(port: number, token: string): void {
         this.baseUrl = `http://127.0.0.1:${port}`;
+        this.port = port;
         this.token = token;
     }
 
@@ -171,6 +193,107 @@ export class ApiClient {
             model: body.model,
             device: body.device,
             uptimeSec: body.uptime_sec,
+        };
+    }
+
+    async openTranscribeStream(language: string | null, intervalSec: number = 2.0): Promise<StreamingSession> {
+        const url = new URL(`ws://127.0.0.1:${this.port}/transcribe-stream`);
+        url.searchParams.set('token', this.token);
+        url.searchParams.set('interval', String(intervalSec));
+        if (language) {
+            url.searchParams.set('language', language);
+        }
+
+        const ws = new WebSocket(url.toString());
+
+        await new Promise<void>((resolve, reject) => {
+            const onOpen = (): void => {
+                ws.off('error', onError);
+                resolve();
+            };
+            const onError = (err: Error): void => {
+                ws.off('open', onOpen);
+                reject(err);
+            };
+            ws.once('open', onOpen);
+            ws.once('error', onError);
+        });
+
+        const partialListeners: Array<(p: StreamingPartial) => void> = [];
+        let finalResolve: ((r: StreamingFinal) => void) | null = null;
+        let finalReject: ((e: Error) => void) | null = null;
+
+        ws.on('message', (raw: Buffer | string) => {
+            const text = typeof raw === 'string' ? raw : raw.toString('utf8');
+            let msg: {
+                type: string;
+                confirmed?: string;
+                pending?: string;
+                text?: string;
+                duration_sec?: number;
+                message?: string;
+            };
+            try {
+                msg = JSON.parse(text);
+            } catch {
+                return;
+            }
+            if (msg.type === 'partial') {
+                for (const listener of partialListeners) {
+                    listener({
+                        confirmedText: msg.confirmed ?? '',
+                        pendingText: msg.pending ?? '',
+                        durationSec: msg.duration_sec ?? 0,
+                    });
+                }
+            } else if (msg.type === 'final') {
+                finalResolve?.({ text: msg.text ?? '', durationSec: msg.duration_sec ?? 0 });
+                finalResolve = null;
+                finalReject = null;
+            } else if (msg.type === 'error') {
+                finalReject?.(new Error(msg.message ?? 'Streaming error'));
+                finalResolve = null;
+                finalReject = null;
+            }
+        });
+
+        ws.on('error', (err: Error) => {
+            finalReject?.(err);
+            finalResolve = null;
+            finalReject = null;
+        });
+
+        ws.on('close', () => {
+            finalReject?.(new Error('Streaming connection closed unexpectedly'));
+            finalResolve = null;
+            finalReject = null;
+        });
+
+        return {
+            sendAudio(pcm: Buffer): void {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(pcm);
+                }
+            },
+            onPartial(listener: (partial: StreamingPartial) => void): void {
+                partialListeners.push(listener);
+            },
+            finalize(): Promise<StreamingFinal> {
+                return new Promise<StreamingFinal>((resolve, reject) => {
+                    finalResolve = resolve;
+                    finalReject = reject;
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ action: 'finalize' }));
+                    } else {
+                        reject(new Error('Streaming connection already closed'));
+                    }
+                });
+            },
+            cancel(): void {
+                if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                    ws.close();
+                }
+            },
         };
     }
 

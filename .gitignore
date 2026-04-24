@@ -4,5 +4,8 @@ out/
 .vscode-test/
 python/__pycache__/
 python/*.pyc
+python/build/
+python/*.egg-info/
 .vscode/voice-log.jsonl
 .vscode/puthtotalk/
+.vscode/puthtotalk/voice-log.jsonl

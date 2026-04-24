@@ -100,6 +100,81 @@ export class AudioRecorder implements vscode.Disposable {
         return { wavBuffer, durationSec };
     }
 
+    async startStreaming(onPcm: (chunk: Buffer) => void): Promise<void> {
+        if (this._state !== 'idle') {
+            return;
+        }
+
+        this.tempFile = null;
+
+        const recorder = await this.findRecorder();
+        const args = this.buildStreamingArgs(recorder);
+
+        this.process = cp.spawn(recorder, args, {
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+
+        this.process.stdout?.on('data', (chunk: Buffer) => {
+            onPcm(chunk);
+        });
+
+        this.process.stderr?.on('data', () => {
+            // suppress parecord/arecord status output
+        });
+
+        this.process.on('error', (err) => {
+            this.cleanup();
+            vscode.window.showErrorMessage(
+                `PuthToTalk: Failed to start recorder (${recorder}): ${err.message}`
+            );
+        });
+
+        this.startTime = Date.now();
+        this.setState('recording');
+    }
+
+    async stopStreaming(): Promise<{ durationSec: number }> {
+        if (this._state !== 'recording' || !this.process) {
+            throw new Error('Not recording');
+        }
+
+        this.setState('finishing');
+
+        const tailDelayMs = vscode.workspace.getConfiguration('puthtotalk')
+            .get<number>('stopDelayMs', DEFAULT_STOP_DELAY_MS);
+        if (tailDelayMs > 0) {
+            await new Promise(resolve => setTimeout(resolve, tailDelayMs));
+        }
+
+        this.setState('processing');
+
+        const durationSec = (Date.now() - this.startTime) / 1000;
+        await this.stopProcess();
+        this.process = null;
+        this.setState('idle');
+
+        return { durationSec };
+    }
+
+    private buildStreamingArgs(recorder: string): string[] {
+        if (recorder === 'parecord') {
+            return [
+                '--format=s16le',
+                '--rate=16000',
+                '--channels=1',
+                '--raw',
+            ];
+        }
+        // arecord (ALSA)
+        return [
+            '-f', 'S16_LE',
+            '-r', '16000',
+            '-c', '1',
+            '-t', 'raw',
+            '-',
+        ];
+    }
+
     async cancel(): Promise<void> {
         if (this._state !== 'recording' && this._state !== 'finishing') {
             return;
