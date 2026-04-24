@@ -179,17 +179,12 @@ export class ServerManager implements vscode.Disposable {
                     progressReport = (line: string): void => {
                         const tqdmMatch = line.match(tqdmPattern);
                         if (tqdmMatch) {
-                            const percent = Math.min(100, parseInt(tqdmMatch[1], 10));
-                            const current = tqdmMatch[2];
                             const total = tqdmMatch[3];
-                            const isByteProgress = byteSizePattern.test(total);
-
-                            if (!isByteProgress) {
-                                // File counter (e.g. "Fetching 4 files: 2/4") - show message, don't move the bar.
-                                progress.report({ message: `Preparing model (${current}/${total} files)` });
+                            if (!byteSizePattern.test(total)) {
                                 return;
                             }
-
+                            const percent = Math.min(100, parseInt(tqdmMatch[1], 10));
+                            const current = tqdmMatch[2];
                             const delta = Math.max(0, percent - lastPercent);
                             lastPercent = percent;
                             progress.report({
@@ -245,13 +240,13 @@ export class ServerManager implements vscode.Disposable {
                 this.externalProgressReport = (line: string): void => {
                     const tqdmMatch = line.match(tqdmPattern);
                     if (tqdmMatch) {
-                        const percent = Math.min(100, parseInt(tqdmMatch[1], 10));
-                        const current = tqdmMatch[2];
                         const total = tqdmMatch[3];
                         if (!byteSizePattern.test(total)) {
-                            progress.report({ message: `Preparing model (${current}/${total} files)` });
+                            // Not a byte progress (file counter, audio seconds during warmup, etc).
                             return;
                         }
+                        const percent = Math.min(100, parseInt(tqdmMatch[1], 10));
+                        const current = tqdmMatch[2];
                         const delta = Math.max(0, percent - lastPercent);
                         lastPercent = percent;
                         progress.report({

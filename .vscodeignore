@@ -3,6 +3,7 @@
 .github/**
 src/**
 node_modules/**
+!node_modules/ws/**
 out/test/**
 docs/**
 .gitignore
