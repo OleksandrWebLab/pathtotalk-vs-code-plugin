@@ -76,13 +76,21 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         output.appendLine(`[Streaming] initial draft published (id=${streamingDraftId})`);
 
         let chunkCount = 0;
-        await recorder.startStreaming(chunk => {
-            chunkCount++;
-            if (chunkCount === 1 || chunkCount % 20 === 0) {
-                output.appendLine(`[Streaming] audio chunk #${chunkCount}, ${chunk.length} bytes`);
-            }
-            streamingSession?.sendAudio(chunk);
-        });
+        try {
+            await recorder.startStreaming(chunk => {
+                chunkCount++;
+                if (chunkCount === 1 || chunkCount % 20 === 0) {
+                    output.appendLine(`[Streaming] audio chunk #${chunkCount}, ${chunk.length} bytes`);
+                }
+                streamingSession?.sendAudio(chunk);
+            });
+        } catch (err) {
+            output.appendLine(`[Streaming] recorder.startStreaming failed: ${err}`);
+            streamingSession?.cancel();
+            streamingSession = null;
+            clearDraft();
+            throw err;
+        }
         output.appendLine('[Streaming] recorder started, piping PCM to WS');
     }
 
