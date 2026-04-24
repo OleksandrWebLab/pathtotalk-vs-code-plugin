@@ -1,6 +1,10 @@
 import { TranscribedSegment } from '../api-client';
+import { formatDateTime } from '../lib/date-format';
 
 const TIMESTAMP_INTERVAL_SEC = 60;
+
+export const SUMMARY_PLACEHOLDER =
+    '_No summary yet. Paste yours here or ask an AI to summarize the transcript below._';
 
 export interface TranscriptMeta {
     source: string;
@@ -25,10 +29,16 @@ export function formatTranscriptMarkdown(segments: TranscribedSegment[], meta: T
     lines.push(`<!-- puthtotalk:transcript ${headerJson} -->`);
     lines.push(`# ${meta.source}`);
     lines.push('');
+    lines.push('## Summary');
+    lines.push('');
+    lines.push(SUMMARY_PLACEHOLDER);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
     lines.push(`**Duration:** ${formatDuration(meta.durationSec)}  `);
     lines.push(`**Language:** ${meta.language}  `);
     lines.push(`**Model:** ${meta.model}  `);
-    lines.push(`**Transcribed:** ${meta.createdAt}`);
+    lines.push(`**Transcribed:** ${formatDateTime(new Date(meta.createdAt))}`);
     lines.push('');
 
     let lastTimestamp = -TIMESTAMP_INTERVAL_SEC;

@@ -82,18 +82,30 @@ body {
 }
 
 .transcript-date { font-variant-numeric: tabular-nums; }
+
+.transcript-summary {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--vscode-foreground);
+    opacity: 0.85;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+}
+
 .transcript-lang { opacity: 0.7; text-transform: uppercase; }
 .transcript-duration { opacity: 0.7; }
 .transcript-size { opacity: 0.7; }
 
 .transcript-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     margin-top: 4px;
-    opacity: 0;
-    transition: opacity 0.15s;
 }
-.transcript-card:hover .transcript-actions { opacity: 1; }
 
 .action-btn {
     background: none;
