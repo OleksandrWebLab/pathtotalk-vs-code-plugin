@@ -111,6 +111,10 @@
       {
         "command": "puthtotalk.toggleStreamingMode",
         "title": "Voice: Toggle Streaming Mode (live transcription)"
+      },
+      {
+        "command": "puthtotalk.editVocabulary",
+        "title": "Voice: Edit Project Vocabulary"
       }
     ],
     "keybindings": [

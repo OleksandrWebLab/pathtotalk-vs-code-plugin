@@ -5,6 +5,8 @@ import { CommandDeps } from './types';
 import { VoiceRecord } from '../voice-log/types';
 import { StreamingSession } from '../api-client';
 import { DraftRecord } from '../voice-log/log-store';
+import { LogLocation } from '../voice-log/log-location';
+import { buildInitialPrompt, loadVocabulary } from '../voice-log/vocabulary-store';
 import { ensureGitignoreForFirstRecord } from './gitignore-first-record';
 
 export function registerRecordingCommands(deps: CommandDeps): void {
@@ -40,6 +42,13 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         const language = config.get<string>('language', 'auto');
         const interval = config.get<number>('streamingIntervalSec', 2);
 
+        const location = LogLocation.resolve(globalStorageDir);
+        const vocabulary = loadVocabulary(location.storageDir);
+        const initialPrompt = buildInitialPrompt(vocabulary);
+        if (initialPrompt) {
+            output.appendLine(`[Streaming] vocabulary terms: ${vocabulary.length}`);
+        }
+
         output.appendLine(`[Streaming] starting, language=${language}, interval=${interval}s`);
 
         streamingLanguage = language;
@@ -51,6 +60,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             streamingSession = await apiClient.openTranscribeStream(
                 language === 'auto' ? null : language,
                 interval,
+                initialPrompt,
             );
             output.appendLine('[Streaming] WebSocket opened');
         } catch (err) {
@@ -260,12 +270,17 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             }
 
             const config = vscode.workspace.getConfiguration('puthtotalk');
+            const location = LogLocation.resolve(globalStorageDir);
+            const vocabulary = loadVocabulary(location.storageDir);
+            const initialPrompt = buildInitialPrompt(vocabulary);
+
             let transcribeResult;
             try {
                 transcribeResult = await apiClient.transcribe(
                     result.wavBuffer,
                     config.get<string>('language', 'auto'),
                     config.get<boolean>('vadFilter', true),
+                    initialPrompt,
                 );
             } catch (err) {
                 vscode.window.showErrorMessage(`Transcription failed: ${err}`);

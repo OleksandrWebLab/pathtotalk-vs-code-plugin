@@ -12,7 +12,8 @@ type PanelMessage =
     | { type: 'search'; query: string }
     | { type: 'clearAll' }
     | { type: 'ready' }
-    | { type: 'focusSearch' };
+    | { type: 'focusSearch' }
+    | { type: 'editVocabulary' };
 
 export class VoiceLogPanel implements vscode.WebviewViewProvider, vscode.Disposable {
     private view: vscode.WebviewView | null = null;
@@ -129,6 +130,10 @@ export class VoiceLogPanel implements vscode.WebviewViewProvider, vscode.Disposa
                 }
                 break;
             }
+
+            case 'editVocabulary':
+                await vscode.commands.executeCommand('puthtotalk.editVocabulary');
+                break;
         }
     }
 

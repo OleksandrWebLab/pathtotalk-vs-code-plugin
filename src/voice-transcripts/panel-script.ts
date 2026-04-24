@@ -7,6 +7,10 @@ export const TRANSCRIPTS_PANEL_SCRIPT = `
         vscode.postMessage({ type: 'transcribeFile' });
     };
 
+    document.getElementById('editVocabularyBtn').onclick = function() {
+        vscode.postMessage({ type: 'editVocabulary' });
+    };
+
     window.addEventListener('message', function(event) {
         const msg = event.data;
         if (msg.type === 'items') {

@@ -22,6 +22,33 @@ import time
 from contextlib import asynccontextmanager
 from typing import Optional
 
+
+def _force_tqdm_progress_even_without_tty() -> None:
+    """faster-whisper / huggingface_hub use tqdm, which auto-disables when stderr is not a TTY.
+    When VS Code spawns us through a pipe there is no TTY, so the progress bar never prints
+    and the extension can't parse percent updates. Force tqdm to stay enabled."""
+    print("[tqdm-patch] starting", flush=True)
+    try:
+        import tqdm as tqdm_pkg
+        import tqdm.std
+        print(f"[tqdm-patch] tqdm version: {tqdm_pkg.__version__}", flush=True)
+        original_init = tqdm.std.tqdm.__init__
+
+        def patched_init(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            kwargs["disable"] = False
+            kwargs["mininterval"] = 0.1
+            kwargs["miniters"] = 1
+            original_init(self, *args, **kwargs)
+
+        tqdm.std.tqdm.__init__ = patched_init  # type: ignore[method-assign]
+        print("[tqdm-patch] patched tqdm.std.tqdm.__init__", flush=True)
+    except Exception as exc:
+        print(f"[tqdm-patch] FAILED: {exc}", flush=True)
+
+
+_force_tqdm_progress_even_without_tty()
+
+
 import numpy as np
 import uvicorn
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
@@ -118,6 +145,7 @@ class WhisperModel:
         audio_data: np.ndarray,
         language: Optional[str],
         vad_filter: bool,
+        initial_prompt: Optional[str] = None,
     ) -> dict:
         if self._model is None:
             raise RuntimeError("Model not loaded")
@@ -129,6 +157,7 @@ class WhisperModel:
             language=lang,
             beam_size=self._beam_size,
             vad_filter=vad_filter,
+            initial_prompt=initial_prompt,
         )
 
         text = " ".join(segment.text for segment in segments).strip()
@@ -161,7 +190,7 @@ class WhisperModel:
         )
         return list(segments), info
 
-    def transcribe_file_stream(self, file_path: str, language: Optional[str]):
+    def transcribe_file_stream(self, file_path: str, language: Optional[str], initial_prompt: Optional[str] = None):
         """Return (segments_iterable, info) for a media file. faster-whisper handles ffmpeg internally."""
         if self._model is None:
             raise RuntimeError("Model not loaded")
@@ -176,6 +205,7 @@ class WhisperModel:
             vad_parameters={"min_silence_duration_ms": 500},
             condition_on_previous_text=False,
             no_speech_threshold=0.6,
+            initial_prompt=initial_prompt,
         )
         return segments, info
 
@@ -256,6 +286,7 @@ class ShutdownResponse(BaseModel):
 class TranscribeFileRequest(BaseModel):
     path: str
     language: Optional[str] = None
+    initial_prompt: Optional[str] = None
 
 
 @app.get("/health", response_model=HealthResponse, summary="Server health check", tags=["System"], status_code=200)
@@ -280,6 +311,7 @@ async def transcribe(
     audio: UploadFile = File(...),
     language: Optional[str] = Form(default=None),
     vad_filter: bool = Form(default=True),
+    initial_prompt: Optional[str] = Form(default=None),
     x_extension_token: str = Header(...),
 ) -> TranscribeResponse:
     verify_token(x_extension_token)
@@ -292,7 +324,7 @@ async def transcribe(
     audio_bytes = await audio.read()
     audio_array = _decode_wav(audio_bytes)
 
-    result = await asyncio.to_thread(whisper.transcribe, audio_array, language, vad_filter)
+    result = await asyncio.to_thread(whisper.transcribe, audio_array, language, vad_filter, initial_prompt)
 
     processing_time = round(time.time() - t0, 3)
     logger.info(
@@ -336,7 +368,7 @@ async def transcribe_file(
     def worker() -> None:
         try:
             t0 = time.time()
-            segments, info = whisper.transcribe_file_stream(body.path, body.language)
+            segments, info = whisper.transcribe_file_stream(body.path, body.language, body.initial_prompt)
             duration = float(info.duration)
             collected_segments: list[dict] = []
             last_wall = time.time()
@@ -402,6 +434,7 @@ async def transcribe_stream_ws(ws: WebSocket) -> None:
         return
 
     language = ws.query_params.get("language") or None
+    initial_prompt = ws.query_params.get("initial_prompt") or None
     process_interval_sec = float(ws.query_params.get("interval", "2.0"))
 
     await ws.accept()
@@ -411,7 +444,7 @@ async def transcribe_stream_ws(ws: WebSocket) -> None:
         await ws.close()
         return
 
-    transcriber = StreamingTranscriber(whisper=whisper, language=language)
+    transcriber = StreamingTranscriber(whisper=whisper, language=language, initial_prompt=initial_prompt)
     stop_event = asyncio.Event()
     processing_lock = asyncio.Lock()
 
@@ -505,7 +538,7 @@ async def reload_model(
     x_extension_token: str = Header(...),
 ) -> ReloadResponse:
     verify_token(x_extension_token)
-    whisper.reload(model, device, compute_type, beam_size)
+    await asyncio.to_thread(whisper.reload, model, device, compute_type, beam_size)
     return ReloadResponse(status="reloaded", model=model)
 
 

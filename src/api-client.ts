@@ -65,6 +65,7 @@ export class ApiClient {
         wavBuffer: Buffer,
         language: string = 'auto',
         vadFilter: boolean = true,
+        initialPrompt: string | null = null,
     ): Promise<TranscribeResult> {
         const formData = new FormData();
         const arrayBuffer: ArrayBuffer = wavBuffer.buffer instanceof ArrayBuffer
@@ -76,6 +77,9 @@ export class ApiClient {
             formData.append('language', language);
         }
         formData.append('vad_filter', String(vadFilter));
+        if (initialPrompt) {
+            formData.append('initial_prompt', initialPrompt);
+        }
 
         const response = await fetch(`${this.baseUrl}/transcribe`, {
             method: 'POST',
@@ -108,6 +112,7 @@ export class ApiClient {
         filePath: string,
         language: string | null,
         onProgress: (progress: FileTranscribeProgress) => void,
+        initialPrompt: string | null = null,
     ): Promise<FileTranscribeResult> {
         const response = await fetch(`${this.baseUrl}/transcribe-file`, {
             method: 'POST',
@@ -115,7 +120,11 @@ export class ApiClient {
                 'X-Extension-Token': this.token,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ path: filePath, language: language ?? undefined }),
+            body: JSON.stringify({
+                path: filePath,
+                language: language ?? undefined,
+                initial_prompt: initialPrompt ?? undefined,
+            }),
         });
 
         if (!response.ok) {
@@ -196,12 +205,19 @@ export class ApiClient {
         };
     }
 
-    async openTranscribeStream(language: string | null, intervalSec: number = 2.0): Promise<StreamingSession> {
+    async openTranscribeStream(
+        language: string | null,
+        intervalSec: number = 2.0,
+        initialPrompt: string | null = null,
+    ): Promise<StreamingSession> {
         const url = new URL(`ws://127.0.0.1:${this.port}/transcribe-stream`);
         url.searchParams.set('token', this.token);
         url.searchParams.set('interval', String(intervalSec));
         if (language) {
             url.searchParams.set('language', language);
+        }
+        if (initialPrompt) {
+            url.searchParams.set('initial_prompt', initialPrompt);
         }
 
         const ws = new WebSocket(url.toString());
@@ -313,7 +329,8 @@ export class ApiClient {
             method: 'POST',
             headers: { 'X-Extension-Token': this.token },
             body: formData,
-            signal: AbortSignal.timeout(120000),
+            // 30 minutes - same as initial model download ceiling, covers large-v3 on slow networks.
+            signal: AbortSignal.timeout(1800000),
         });
 
         if (!response.ok) {

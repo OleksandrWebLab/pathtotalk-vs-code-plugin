@@ -36,6 +36,26 @@ body {
     text-overflow: ellipsis;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 3px 5px;
+    border-radius: 3px;
+    color: var(--vscode-icon-foreground);
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.1s, background 0.1s;
+}
+.icon-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
+
 .primary-btn {
     background: var(--vscode-button-background);
     color: var(--vscode-button-foreground);

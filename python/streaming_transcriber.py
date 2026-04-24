@@ -40,6 +40,7 @@ class StreamingResult:
 class StreamingTranscriber:
     whisper: object
     language: Optional[str]
+    initial_prompt: Optional[str] = None
     buffer: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.float32))
     confirmed_text: str = ""
     previous_tail: list[Word] = field(default_factory=list)
@@ -66,7 +67,7 @@ class StreamingTranscriber:
                 duration_sec=self.total_seconds,
             )
 
-        prompt = self.confirmed_text[-CONTEXT_PROMPT_CHARS:] if self.confirmed_text else None
+        prompt = self._build_prompt()
         segments, _info = self.whisper.transcribe_samples_with_words(
             self.buffer,
             self.language,
@@ -116,7 +117,7 @@ class StreamingTranscriber:
     def finalize(self) -> StreamingResult:
         """Flush remaining buffer into confirmed text."""
         if self.buffered_seconds >= MIN_SECONDS_TO_PROCESS:
-            prompt = self.confirmed_text[-CONTEXT_PROMPT_CHARS:] if self.confirmed_text else None
+            prompt = self._build_prompt()
             segments, _info = self.whisper.transcribe_samples_with_words(
                 self.buffer,
                 self.language,
@@ -137,6 +138,12 @@ class StreamingTranscriber:
             pending_text="",
             duration_sec=self.total_seconds,
         )
+
+    def _build_prompt(self) -> Optional[str]:
+        tail = self.confirmed_text[-CONTEXT_PROMPT_CHARS:] if self.confirmed_text else ""
+        if self.initial_prompt and tail:
+            return f"{self.initial_prompt} {tail}"
+        return self.initial_prompt or (tail or None)
 
     @staticmethod
     def _longest_common_prefix(current: list[Word], previous: list[Word]) -> list[Word]:

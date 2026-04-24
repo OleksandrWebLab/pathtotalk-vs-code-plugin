@@ -17,9 +17,11 @@ import { registerGitignoreCommands } from './commands/gitignore-commands';
 import { registerModelCommands } from './commands/model-commands';
 import { registerServerCommands } from './commands/server-commands';
 import { registerTranscribeFileCommand } from './commands/transcribe-file-command';
+import { ensureVocabularyFile } from './voice-log/vocabulary-store';
+import { createTimestampedOutputChannel } from './lib/timestamped-channel';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-    const output = vscode.window.createOutputChannel('PuthToTalk');
+    const output = createTimestampedOutputChannel('PuthToTalk');
     context.subscriptions.push(output);
 
     const setup = new SetupWizard(context);
@@ -110,6 +112,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             vscode.commands.executeCommand('puthtotalk.voiceTranscripts.focus');
         }),
         registerTranscribeFileCommand(deps, transcriptStoreRef),
+        vscode.commands.registerCommand('puthtotalk.editVocabulary', async () => {
+            const location = LogLocation.resolve(globalStorageDir);
+            if (location.type === 'fallback' || !location.workspaceRoot) {
+                vscode.window.showWarningMessage('Open a workspace folder to edit project vocabulary.');
+                return;
+            }
+            const filePath = ensureVocabularyFile(location.storageDir);
+            const doc = await vscode.workspace.openTextDocument(filePath);
+            await vscode.window.showTextDocument(doc);
+        }),
     );
 
     if (vscode.workspace.getConfiguration('puthtotalk.log').get<boolean>('autoOpenPanel', false)) {
