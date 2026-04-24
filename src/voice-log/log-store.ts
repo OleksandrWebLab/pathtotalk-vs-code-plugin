@@ -3,18 +3,38 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { VoiceRecord, LogFilter } from './types';
 
+export interface DraftRecord {
+    id: string;
+    confirmedText: string;
+    pendingText: string;
+    startedAt: string;
+    durationSec: number;
+}
+
 export class LogStore implements vscode.Disposable {
     private readonly onRecordAddedEmitter = new vscode.EventEmitter<VoiceRecord>();
     private readonly onRecordUpdatedEmitter = new vscode.EventEmitter<VoiceRecord>();
     private readonly onRecordDeletedEmitter = new vscode.EventEmitter<string>();
+    private readonly onDraftChangedEmitter = new vscode.EventEmitter<DraftRecord | null>();
 
     readonly onRecordAdded = this.onRecordAddedEmitter.event;
     readonly onRecordUpdated = this.onRecordUpdatedEmitter.event;
     readonly onRecordDeleted = this.onRecordDeletedEmitter.event;
+    readonly onDraftChanged = this.onDraftChangedEmitter.event;
 
     private fileWatcher: fs.FSWatcher | null = null;
+    private draft: DraftRecord | null = null;
 
     constructor(public readonly logPath: string) {}
+
+    get currentDraft(): DraftRecord | null {
+        return this.draft;
+    }
+
+    setDraft(draft: DraftRecord | null): void {
+        this.draft = draft;
+        this.onDraftChangedEmitter.fire(draft);
+    }
 
     async add(record: VoiceRecord): Promise<void> {
         fs.mkdirSync(path.dirname(this.logPath), { recursive: true });
@@ -182,5 +202,6 @@ export class LogStore implements vscode.Disposable {
         this.onRecordAddedEmitter.dispose();
         this.onRecordUpdatedEmitter.dispose();
         this.onRecordDeletedEmitter.dispose();
+        this.onDraftChangedEmitter.dispose();
     }
 }

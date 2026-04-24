@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
-import { LogStore } from './log-store';
+import { DraftRecord, LogStore } from './log-store';
 import { VoiceRecord } from './types';
 import { buildPanelHtml } from './panel-html';
 
@@ -43,7 +43,12 @@ export class VoiceLogPanel implements vscode.WebviewViewProvider, vscode.Disposa
             this.logStore.onRecordAdded(() => this.refresh()),
             this.logStore.onRecordUpdated(() => this.refresh()),
             this.logStore.onRecordDeleted(() => this.refresh()),
+            this.logStore.onDraftChanged(draft => this.sendDraft(draft)),
         );
+    }
+
+    private sendDraft(draft: DraftRecord | null): void {
+        this.view?.webview.postMessage({ type: 'draft', draft });
     }
 
     resolveWebviewView(
@@ -157,6 +162,7 @@ export class VoiceLogPanel implements vscode.WebviewViewProvider, vscode.Disposa
             projectName: this.getProjectName(),
             totalCount: this.logStore.recordCount,
         });
+        this.sendDraft(this.logStore.currentDraft);
     }
 
     private getProjectName(): string {

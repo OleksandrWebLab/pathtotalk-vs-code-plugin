@@ -107,6 +107,10 @@
       {
         "command": "puthtotalk.showTranscripts",
         "title": "Voice: Show Transcripts"
+      },
+      {
+        "command": "puthtotalk.toggleStreamingMode",
+        "title": "Voice: Toggle Streaming Mode (live transcription)"
       }
     ],
     "keybindings": [
@@ -223,6 +227,18 @@
           "maximum": 5000,
           "description": "Extra recording time (ms) after Stop is pressed, so the last words are not cut off"
         },
+        "puthtotalk.streamingMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Transcribe speech in real time while you dictate (a draft entry in Voice Log updates live). Requires a CUDA GPU; on CPU it will overload the machine."
+        },
+        "puthtotalk.streamingIntervalSec": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "How often (seconds) the streaming transcriber emits a partial result"
+        },
         "puthtotalk.beamSize": {
           "type": "number",
           "default": 5,
@@ -298,9 +314,13 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.0.0",
     "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
   }
 }

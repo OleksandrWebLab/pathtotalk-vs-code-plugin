@@ -24,10 +24,12 @@ from typing import Optional
 
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 from pydantic import BaseModel
+
+from streaming_transcriber import StreamingTranscriber
 
 
 def setup_logging(log_file: Optional[str]) -> None:
@@ -135,6 +137,29 @@ class WhisperModel:
             "language": info.language,
             "duration_sec": float(info.duration),
         }
+
+    def transcribe_samples_with_words(
+        self,
+        audio_data: np.ndarray,
+        language: Optional[str],
+        initial_prompt: Optional[str] = None,
+    ):
+        """Return (segments_list, info) with word-level timestamps. Used by the streaming transcriber."""
+        if self._model is None:
+            raise RuntimeError("Model not loaded")
+
+        lang = language if language and language != "auto" else None
+
+        segments, info = self._model.transcribe(
+            audio_data,
+            language=lang,
+            beam_size=self._beam_size,
+            vad_filter=False,
+            word_timestamps=True,
+            condition_on_previous_text=False,
+            initial_prompt=initial_prompt,
+        )
+        return list(segments), info
 
     def transcribe_file_stream(self, file_path: str, language: Optional[str]):
         """Return (segments_iterable, info) for a media file. faster-whisper handles ffmpeg internally."""
@@ -367,6 +392,108 @@ async def transcribe_file(
             yield json.dumps(msg, ensure_ascii=False) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+@app.websocket("/transcribe-stream")
+async def transcribe_stream_ws(ws: WebSocket) -> None:
+    token = ws.query_params.get("token", "")
+    if token != server_args.token:
+        await ws.close(code=1008, reason="Invalid token")
+        return
+
+    language = ws.query_params.get("language") or None
+    process_interval_sec = float(ws.query_params.get("interval", "2.0"))
+
+    await ws.accept()
+
+    if not whisper.is_loaded:
+        await ws.send_json({"type": "error", "message": "Model not loaded yet"})
+        await ws.close()
+        return
+
+    transcriber = StreamingTranscriber(whisper=whisper, language=language)
+    stop_event = asyncio.Event()
+    processing_lock = asyncio.Lock()
+
+    async def emit_partial() -> None:
+        async with processing_lock:
+            result = await asyncio.to_thread(transcriber.process_iter)
+        try:
+            await ws.send_json({
+                "type": "partial",
+                "confirmed": result.confirmed_text,
+                "pending": result.pending_text,
+                "duration_sec": result.duration_sec,
+            })
+        except Exception:
+            stop_event.set()
+
+    async def periodic_loop() -> None:
+        while not stop_event.is_set():
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=process_interval_sec)
+                return
+            except asyncio.TimeoutError:
+                pass
+            if transcriber.buffered_seconds >= 1.0:
+                await emit_partial()
+
+    periodic_task = asyncio.create_task(periodic_loop())
+    logger.info("Streaming session started (language={}, interval={}s)", language, process_interval_sec)
+
+    try:
+        while True:
+            msg = await ws.receive()
+            msg_type = msg.get("type")
+
+            if msg_type == "websocket.disconnect":
+                break
+
+            if msg.get("bytes") is not None:
+                transcriber.insert_audio_chunk(msg["bytes"])
+                continue
+
+            text = msg.get("text")
+            if not text:
+                continue
+
+            try:
+                command = json.loads(text)
+            except json.JSONDecodeError:
+                continue
+
+            action = command.get("action")
+            if action == "process":
+                await emit_partial()
+            elif action == "finalize":
+                async with processing_lock:
+                    result = await asyncio.to_thread(transcriber.finalize)
+                await ws.send_json({
+                    "type": "final",
+                    "text": result.confirmed_text,
+                    "duration_sec": result.duration_sec,
+                })
+                break
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        logger.error("Streaming session error: {}", exc)
+        try:
+            await ws.send_json({"type": "error", "message": str(exc)})
+        except Exception:
+            pass
+    finally:
+        stop_event.set()
+        periodic_task.cancel()
+        try:
+            await periodic_task
+        except (asyncio.CancelledError, Exception):
+            pass
+        try:
+            await ws.close()
+        except Exception:
+            pass
+        logger.info("Streaming session ended")
 
 
 @app.post("/reload", response_model=ReloadResponse, summary="Reload model with new settings", tags=["System"], status_code=200)

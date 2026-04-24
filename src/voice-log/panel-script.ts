@@ -6,6 +6,7 @@ export const PANEL_SCRIPT = `
     let expandedIds = new Set();
     let editingId = null;
     let showingAllUnstarred = false;
+    let currentDraft = null;
 
     document.getElementById('clearAllBtn').onclick = function() {
         vscode.postMessage({ type: 'clearAll' });
@@ -29,6 +30,10 @@ export const PANEL_SCRIPT = `
                 document.getElementById('projectName').textContent = msg.projectName || '';
                 renderRecords(allRecords);
                 break;
+            case 'draft':
+                currentDraft = msg.draft || null;
+                updateDraftCard();
+                break;
             case 'copied':
                 flashCopied(msg.id);
                 break;
@@ -38,6 +43,58 @@ export const PANEL_SCRIPT = `
                 break;
         }
     });
+
+    function updateDraftCard() {
+        const existing = document.getElementById('draftCard');
+        if (!currentDraft) {
+            if (existing) existing.remove();
+            return;
+        }
+        const card = existing || buildDraftCard();
+        const confirmedEl = card.querySelector('.draft-confirmed');
+        const pendingEl = card.querySelector('.draft-pending');
+        const durationEl = card.querySelector('.draft-duration');
+        confirmedEl.textContent = currentDraft.confirmedText || '';
+        pendingEl.textContent = currentDraft.pendingText || '';
+        durationEl.textContent = formatDraftDuration(currentDraft.durationSec || 0);
+        if (!existing) {
+            const list = document.getElementById('logList');
+            list.insertBefore(card, list.firstChild);
+        }
+    }
+
+    function buildDraftCard() {
+        const card = document.createElement('div');
+        card.id = 'draftCard';
+        card.className = 'record-card draft';
+
+        const meta = document.createElement('div');
+        meta.className = 'record-meta';
+        meta.innerHTML =
+            '<span class="draft-dot"></span>' +
+            '<span class="draft-label">Live</span>' +
+            '<span class="record-dur draft-duration">0s</span>';
+        card.appendChild(meta);
+
+        const text = document.createElement('div');
+        text.className = 'record-text';
+        const confirmed = document.createElement('span');
+        confirmed.className = 'draft-confirmed';
+        const pending = document.createElement('span');
+        pending.className = 'draft-pending';
+        text.appendChild(confirmed);
+        text.appendChild(pending);
+        card.appendChild(text);
+
+        return card;
+    }
+
+    function formatDraftDuration(sec) {
+        const total = Math.floor(sec);
+        const m = Math.floor(total / 60);
+        const s = total % 60;
+        return m > 0 ? m + 'm ' + s + 's' : s + 's';
+    }
 
     function renderRecords(records) {
         const list = document.getElementById('logList');
@@ -85,6 +142,8 @@ export const PANEL_SCRIPT = `
             showMoreWrap.appendChild(showMoreBtn);
             list.appendChild(showMoreWrap);
         }
+
+        updateDraftCard();
     }
 
     function buildCard(record) {
