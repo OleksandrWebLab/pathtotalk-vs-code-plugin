@@ -10,6 +10,7 @@ import {
     formatTranscriptMarkdown,
     sanitizeFileName,
 } from '../voice-transcripts/transcript-formatter';
+import { formatDateTime } from '../lib/date-format';
 
 const MEDIA_FILTERS = {
     'Audio / Video': ['mp3', 'mp4', 'mkv', 'webm', 'wav', 'm4a', 'flac', 'ogg', 'mov', 'avi', 'aac', 'opus'],
@@ -47,7 +48,7 @@ export function registerTranscribeFileCommand(
         const duplicate = existing.find(item => item.sourceName === sourceName);
         if (duplicate) {
             const answer = await vscode.window.showWarningMessage(
-                `"${sourceName}" was already transcribed on ${new Date(duplicate.createdAt).toLocaleString()}. Transcribe again?`,
+                `"${sourceName}" was already transcribed on ${formatDateTime(new Date(duplicate.createdAt))}. Transcribe again?`,
                 { modal: true },
                 'Transcribe again',
             );

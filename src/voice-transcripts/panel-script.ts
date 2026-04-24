@@ -50,15 +50,20 @@ export const TRANSCRIPTS_PANEL_SCRIPT = `
         meta.className = 'transcript-meta';
 
         const created = new Date(item.createdAt);
-        const dateStr = created.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const timeStr = created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         meta.innerHTML =
-            '<span class="transcript-date">' + escHtml(dateStr + ' ' + timeStr) + '</span>' +
+            '<span class="transcript-date">' + escHtml(formatDateTime(created)) + '</span>' +
             (item.language ? '<span class="transcript-lang">' + escHtml(item.language) + '</span>' : '') +
             (item.durationSec ? '<span class="transcript-duration">' + formatDuration(item.durationSec) + '</span>' : '') +
             '<span class="transcript-size">' + formatSize(item.sizeBytes) + '</span>';
         card.appendChild(meta);
+
+        if (item.summary) {
+            const summaryEl = document.createElement('div');
+            summaryEl.className = 'transcript-summary';
+            summaryEl.textContent = item.summary;
+            card.appendChild(summaryEl);
+        }
 
         const actions = document.createElement('div');
         actions.className = 'transcript-actions';
@@ -84,6 +89,15 @@ export const TRANSCRIPTS_PANEL_SCRIPT = `
         card.appendChild(actions);
 
         return card;
+    }
+
+    function pad(value) {
+        return String(value).padStart(2, '0');
+    }
+
+    function formatDateTime(d) {
+        return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear()
+            + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
     }
 
     function formatDuration(sec) {

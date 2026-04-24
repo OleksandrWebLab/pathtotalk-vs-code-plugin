@@ -5,4 +5,4 @@ out/
 python/__pycache__/
 python/*.pyc
 .vscode/voice-log.jsonl
-.vscode/puthtotalk/voice-log.jsonl
+.vscode/puthtotalk/

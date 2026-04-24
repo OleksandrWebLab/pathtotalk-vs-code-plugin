@@ -3,9 +3,12 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { TranscriptFile } from './types';
+import { SUMMARY_PLACEHOLDER } from './transcript-formatter';
 
 const TRANSCRIPT_EXTENSION = '.md';
 const HEADER_PATTERN = /^<!--\s*puthtotalk:transcript\s+(\{.*\})\s*-->/;
+const SUMMARY_SECTION_PATTERN = /^##\s+Summary\s*$/m;
+const PREAMBLE_BYTES = 4096;
 
 interface TranscriptHeader {
     source?: string;
@@ -56,7 +59,9 @@ export class TranscriptStore implements vscode.Disposable {
 
             const fullPath = path.join(this.storageDir, entry.name);
             const stat = fs.statSync(fullPath);
-            const header = this.readHeader(fullPath);
+            const preamble = this.readPreamble(fullPath);
+            const header = this.parseHeader(preamble);
+            const summary = this.parseSummary(preamble);
 
             files.push({
                 id: entry.name,
@@ -67,6 +72,7 @@ export class TranscriptStore implements vscode.Disposable {
                 sizeBytes: stat.size,
                 durationSec: header.duration_sec,
                 language: header.language,
+                summary,
             });
         }
 
@@ -74,22 +80,43 @@ export class TranscriptStore implements vscode.Disposable {
         return files;
     }
 
-    private readHeader(filePath: string): TranscriptHeader {
+    private readPreamble(filePath: string): string {
         try {
             const fd = fs.openSync(filePath, 'r');
-            const buffer = Buffer.alloc(512);
-            const bytesRead = fs.readSync(fd, buffer, 0, 512, 0);
+            const buffer = Buffer.alloc(PREAMBLE_BYTES);
+            const bytesRead = fs.readSync(fd, buffer, 0, PREAMBLE_BYTES, 0);
             fs.closeSync(fd);
+            return buffer.toString('utf8', 0, bytesRead);
+        } catch {
+            return '';
+        }
+    }
 
-            const firstLine = buffer.toString('utf8', 0, bytesRead).split('\n')[0];
-            const match = firstLine.match(HEADER_PATTERN);
-            if (!match) {
-                return {};
-            }
+    private parseHeader(preamble: string): TranscriptHeader {
+        const firstLine = preamble.split('\n', 1)[0];
+        const match = firstLine.match(HEADER_PATTERN);
+        if (!match) {
+            return {};
+        }
+        try {
             return JSON.parse(match[1]) as TranscriptHeader;
         } catch {
             return {};
         }
+    }
+
+    private parseSummary(preamble: string): string | undefined {
+        const match = preamble.match(SUMMARY_SECTION_PATTERN);
+        if (!match || match.index === undefined) {
+            return undefined;
+        }
+        const afterHeading = preamble.slice(match.index + match[0].length);
+        const stopIndex = afterHeading.search(/\n---\s*\n|\n##\s+|\n\*\*[A-Za-z]/);
+        const body = (stopIndex === -1 ? afterHeading : afterHeading.slice(0, stopIndex)).trim();
+        if (!body || body === SUMMARY_PLACEHOLDER) {
+            return undefined;
+        }
+        return body;
     }
 
     async delete(fileName: string): Promise<void> {

@@ -99,7 +99,7 @@ export const PANEL_SCRIPT = `
         meta.className = 'record-meta';
 
         const d = new Date(record.timestamp);
-        const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const time = pad(d.getHours()) + ':' + pad(d.getMinutes());
 
         meta.innerHTML =
             (isUnread ? '<span class="unread-dot" title="Not copied yet"></span>' : '') +
@@ -217,20 +217,18 @@ export const PANEL_SCRIPT = `
     function groupByDay(records) {
         const map = new Map();
         const now = new Date();
-        const today = toDateStr(now);
-        const yesterday = toDateStr(new Date(now.getTime() - 86400000));
-        const weekAgo = new Date(now.getTime() - 7 * 86400000);
+        const todayKey = dayKey(now);
+        const yesterdayKey = dayKey(new Date(now.getTime() - 86400000));
 
         for (const r of records) {
             const d = new Date(r.timestamp);
-            const dateStr = toDateStr(d);
+            const key = dayKey(d);
+            const dateStr = formatDate(d);
             let label;
-            if (dateStr === today) {
-                label = 'Today';
-            } else if (dateStr === yesterday) {
-                label = 'Yesterday';
-            } else if (d >= weekAgo) {
-                label = 'This Week';
+            if (key === todayKey) {
+                label = 'Today (' + dateStr + ')';
+            } else if (key === yesterdayKey) {
+                label = 'Yesterday (' + dateStr + ')';
             } else {
                 label = dateStr;
             }
@@ -242,10 +240,16 @@ export const PANEL_SCRIPT = `
         return map;
     }
 
-    function toDateStr(d) {
-        return d.getFullYear() + '-' +
-            String(d.getMonth() + 1).padStart(2, '0') + '-' +
-            String(d.getDate()).padStart(2, '0');
+    function pad(value) {
+        return String(value).padStart(2, '0');
+    }
+
+    function dayKey(d) {
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+
+    function formatDate(d) {
+        return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
     }
 
     function escHtml(str) {

@@ -7,6 +7,7 @@ export interface TranscriptFile {
     sizeBytes: number;
     durationSec?: number;
     language?: string;
+    summary?: string;
 }
 
 export interface TranscriptSegment {
