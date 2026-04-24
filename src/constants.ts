@@ -21,12 +21,12 @@ export type ComputeTypeOption = typeof COMPUTE_TYPE_OPTIONS[number];
 export type SetupMode = 'gpu' | 'cpu';
 
 export const MODEL_DESCRIPTIONS: Record<WhisperModel, { size: string; detail: string }> = {
-    'tiny':     { size: '~75 MB',  detail: 'Fastest. Low accuracy. Good for testing.' },
-    'base':     { size: '~145 MB', detail: 'Fast with decent accuracy.' },
-    'small':    { size: '~465 MB', detail: 'Good balance of speed and accuracy.' },
-    'medium':   { size: '~1.5 GB', detail: 'High accuracy, moderate speed.' },
-    'large-v2': { size: '~3 GB',   detail: 'Very high accuracy.' },
-    'large-v3': { size: '~3 GB',   detail: 'Best accuracy. Recommended for GPU.' },
+    'tiny':     { size: '~75 MB',  detail: 'GPU: ~1 GB VRAM • CPU: ~10x realtime • Accuracy: low — good for testing.' },
+    'base':     { size: '~145 MB', detail: 'GPU: ~1 GB VRAM • CPU: ~6x realtime • Accuracy: decent.' },
+    'small':    { size: '~465 MB', detail: 'GPU: ~2 GB VRAM • CPU: ~2-3x realtime • Accuracy: good — balanced choice.' },
+    'medium':   { size: '~1.5 GB', detail: 'GPU: ~5 GB VRAM • CPU: ~1x realtime (barely keeps up) • Accuracy: high.' },
+    'large-v2': { size: '~3 GB',   detail: 'GPU: ~8-10 GB VRAM • CPU: ~0.3x realtime (slower than speech) • Accuracy: very high.' },
+    'large-v3': { size: '~3 GB',   detail: 'GPU: ~8-10 GB VRAM • CPU: ~0.3x realtime (slower than speech) • Accuracy: best. Recommended for GPU.' },
 };
 
 export const PUTHTOTALK_STORAGE_DIR = '.vscode/puthtotalk';

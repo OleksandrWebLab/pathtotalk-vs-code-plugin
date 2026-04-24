@@ -65,11 +65,16 @@ export class SetupWizard {
             return false;
         }
 
+        const streamingChoice = await this.pickStreamingMode();
+        if (streamingChoice === undefined) {
+            return false;
+        }
+
         const setupMode = await this.resolveSetupMode(deviceChoice);
 
-        await vscode.workspace
-            .getConfiguration('puthtotalk')
-            .update('model', modelPick, vscode.ConfigurationTarget.Global);
+        const config = vscode.workspace.getConfiguration('puthtotalk');
+        await config.update('model', modelPick, vscode.ConfigurationTarget.Global);
+        await config.update('streamingMode', streamingChoice, vscode.ConfigurationTarget.Global);
 
         return await vscode.window.withProgress(
             {
@@ -195,6 +200,31 @@ export class SetupWizard {
         const picked = await vscode.window.showQuickPick(items, {
             placeHolder: 'Select compute device for the Whisper model',
             title: 'PuthToTalk: Choose Device',
+            matchOnDetail: true,
+        });
+
+        return picked?.value;
+    }
+
+    private async pickStreamingMode(): Promise<boolean | undefined> {
+        const items: Array<vscode.QuickPickItem & { value: boolean }> = [
+            {
+                label: 'Off (classic)',
+                value: false,
+                description: 'Default. Record → stop → transcribe',
+                detail: 'Lower CPU/GPU load. You wait a few seconds after stopping before the text appears.',
+            },
+            {
+                label: 'On (live transcription)',
+                value: true,
+                description: 'Text appears in Voice Log while you speak',
+                detail: 'Best with a GPU. Works on CPU too but lags behind speech on medium+ models.',
+            },
+        ];
+
+        const picked = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Enable streaming (live) transcription?',
+            title: 'PuthToTalk: Streaming Mode',
             matchOnDetail: true,
         });
 
