@@ -12,6 +12,10 @@ export const PANEL_SCRIPT = `
         vscode.postMessage({ type: 'clearAll' });
     };
 
+    document.getElementById('editVocabularyBtn').onclick = function() {
+        vscode.postMessage({ type: 'editVocabulary' });
+    };
+
     const searchInput = document.getElementById('searchInput');
     let searchTimer = null;
     searchInput.addEventListener('input', function() {

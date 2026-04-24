@@ -23,6 +23,7 @@ export function buildPanelHtml(_webview: vscode.Webview, _extensionUri: vscode.U
         <div class="header-right">
             <span class="header-project" id="projectName"></span>
             <div class="header-actions">
+                <button class="icon-btn" id="editVocabularyBtn" title="Edit project vocabulary (terms Whisper should recognize)">&#x1F4D6;</button>
                 <button class="icon-btn" id="clearAllBtn" title="Clear all records">&#x1F5D1;</button>
             </div>
         </div>

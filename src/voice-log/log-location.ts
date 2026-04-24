@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { PUTHTOTALK_STORAGE_DIR, VOICE_LOG_FILE } from '../constants';
+import { ensureStorageDir } from './storage-readme';
 
 export type LogLocationType = 'project' | 'fallback';
 
@@ -53,7 +54,7 @@ export class LogLocation {
         if (fs.existsSync(result.path)) {
             return;
         }
-        fs.mkdirSync(result.storageDir, { recursive: true });
+        ensureStorageDir(result.storageDir);
         fs.renameSync(legacyPath, result.path);
     }
 }

@@ -20,6 +20,8 @@ export class ServerManager implements vscode.Disposable {
     private readonly onStatusChangedEmitter = new vscode.EventEmitter<ServerStatus>();
     readonly onStatusChanged = this.onStatusChangedEmitter.event;
 
+    private externalProgressReport: ((line: string) => void) | null = null;
+
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly outputChannel: vscode.OutputChannel,
@@ -128,23 +130,24 @@ export class ServerManager implements vscode.Disposable {
 
         this.process = cp.spawn(pythonPath, args, {
             stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env },
+            env: { ...process.env, PYTHONUNBUFFERED: '1' },
         });
 
-        const forEachLine = (data: Buffer, tag: string): void => {
+        const forEachLine = (data: Buffer): void => {
             const raw = data.toString();
             for (const line of raw.split(/[\r\n]+/)) {
                 const trimmed = line.trim();
                 if (!trimmed) {
                     continue;
                 }
-                this.outputChannel.appendLine(`[${tag}] ${trimmed}`);
+                this.outputChannel.appendLine(`[server] ${trimmed}`);
                 progressReport?.(trimmed);
+                this.externalProgressReport?.(trimmed);
             }
         };
 
-        this.process.stdout?.on('data', (data: Buffer) => forEachLine(data, 'server'));
-        this.process.stderr?.on('data', (data: Buffer) => forEachLine(data, 'server err'));
+        this.process.stdout?.on('data', (data: Buffer) => forEachLine(data));
+        this.process.stderr?.on('data', (data: Buffer) => forEachLine(data));
 
         this.process.on('exit', (code) => {
             this.outputChannel.appendLine(`[ServerManager] Process exited with code ${code}`);
@@ -169,8 +172,9 @@ export class ServerManager implements vscode.Disposable {
                     progress.report({ message: 'Waiting for server...' });
 
                     let lastPercent = 0;
-                    let lastFileName = '';
                     const tqdmPattern = /(\d{1,3})%\|[^|]*\|\s*(\S+?)\s*\/\s*(\S+?)(?:\s|\[|$)/;
+                    // Bytes: 405M, 3.09G, 462k, 2.67MiB. File counters look like plain integers (2/4).
+                    const byteSizePattern = /^\d+(?:\.\d+)?\s*[kKmMgGtT]i?[bB]?$/;
 
                     progressReport = (line: string): void => {
                         const tqdmMatch = line.match(tqdmPattern);
@@ -178,34 +182,24 @@ export class ServerManager implements vscode.Disposable {
                             const percent = Math.min(100, parseInt(tqdmMatch[1], 10));
                             const current = tqdmMatch[2];
                             const total = tqdmMatch[3];
-                            const fileMatch = line.match(/(\S+\.(?:bin|json|model|pt|gguf|safetensors|onnx|txt))/);
-                            const fileName = fileMatch ? fileMatch[1] : lastFileName || 'model files';
+                            const isByteProgress = byteSizePattern.test(total);
 
-                            if (fileName !== lastFileName) {
-                                lastFileName = fileName;
-                                lastPercent = 0;
+                            if (!isByteProgress) {
+                                // File counter (e.g. "Fetching 4 files: 2/4") - show message, don't move the bar.
+                                progress.report({ message: `Preparing model (${current}/${total} files)` });
+                                return;
                             }
 
                             const delta = Math.max(0, percent - lastPercent);
                             lastPercent = percent;
                             progress.report({
-                                message: `Downloading ${fileName}: ${percent}% (${current}/${total})`,
+                                message: `Downloading model: ${percent}% (${current}/${total})`,
                                 increment: delta,
                             });
                             return;
                         }
 
-                        if (line.includes('Downloading') || line.includes('HTTP Request')) {
-                            const urlMatch = line.match(/\/([^/]+\.(?:bin|json|model|pt|gguf|safetensors|onnx))/);
-                            const fileName = urlMatch ? urlMatch[1] : 'model files';
-                            if (fileName !== lastFileName) {
-                                lastFileName = fileName;
-                                lastPercent = 0;
-                            }
-                            progress.report({ message: `Downloading ${fileName}...` });
-                        } else if (line.includes('Loading model')) {
-                            lastFileName = '';
-                            lastPercent = 0;
+                        if (line.includes('Loading model')) {
                             progress.report({ message: 'Loading model into memory...' });
                         } else if (line.includes('on cuda') || line.includes('on cpu')) {
                             progress.report({ message: 'Model loaded, warming up...' });
@@ -232,6 +226,54 @@ export class ServerManager implements vscode.Disposable {
 
         this.setStatus('ready');
         this.outputChannel.appendLine(`[ServerManager] Ready on port ${this._port}`);
+    }
+
+    async runWithModelLoadingProgress<T>(title: string, operation: () => Promise<T>): Promise<T> {
+        return vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title,
+                cancellable: false,
+            },
+            async (progress) => {
+                progress.report({ message: 'Starting...' });
+
+                let lastPercent = 0;
+                const tqdmPattern = /(\d{1,3})%\|[^|]*\|\s*(\S+?)\s*\/\s*(\S+?)(?:\s|\[|$)/;
+                const byteSizePattern = /^\d+(?:\.\d+)?\s*[kKmMgGtT]i?[bB]?$/;
+
+                this.externalProgressReport = (line: string): void => {
+                    const tqdmMatch = line.match(tqdmPattern);
+                    if (tqdmMatch) {
+                        const percent = Math.min(100, parseInt(tqdmMatch[1], 10));
+                        const current = tqdmMatch[2];
+                        const total = tqdmMatch[3];
+                        if (!byteSizePattern.test(total)) {
+                            progress.report({ message: `Preparing model (${current}/${total} files)` });
+                            return;
+                        }
+                        const delta = Math.max(0, percent - lastPercent);
+                        lastPercent = percent;
+                        progress.report({
+                            message: `Downloading model: ${percent}% (${current}/${total})`,
+                            increment: delta,
+                        });
+                        return;
+                    }
+                    if (line.includes('Loading model')) {
+                        progress.report({ message: 'Loading model into memory...' });
+                    } else if (line.includes('on cuda') || line.includes('on cpu')) {
+                        progress.report({ message: 'Model loaded, warming up...' });
+                    }
+                };
+
+                try {
+                    return await operation();
+                } finally {
+                    this.externalProgressReport = null;
+                }
+            },
+        );
     }
 
     private async waitForPortFile(portFile: string, timeoutMs: number): Promise<number> {
@@ -284,11 +326,9 @@ export class ServerManager implements vscode.Disposable {
         this.healthFailCount = 0;
         this.healthCheckTimer = setInterval(async () => {
             try {
-                const status = await this.fetchHealth();
+                // Server replied - it is alive regardless of whether it is "ready" or "loading" a model.
+                await this.fetchHealth();
                 this.healthFailCount = 0;
-                if (status !== 'ready' && this._status === 'ready') {
-                    this.setStatus('error');
-                }
             } catch {
                 if (this._status === 'ready') {
                     this.healthFailCount++;

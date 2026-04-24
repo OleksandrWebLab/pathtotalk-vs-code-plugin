@@ -20,7 +20,10 @@ export function buildTranscriptsPanelHtml(_webview: vscode.Webview, _extensionUr
 <div class="header">
     <div class="header-row">
         <span class="header-title">Voice Transcripts</span>
-        <button class="primary-btn" id="newBtn" title="Transcribe an audio or video file">+ Transcribe file</button>
+        <div class="header-actions">
+            <button class="icon-btn" id="editVocabularyBtn" title="Edit project vocabulary (terms Whisper should recognize)">&#x1F4D6;</button>
+            <button class="primary-btn" id="newBtn" title="Transcribe an audio or video file">+ Transcribe file</button>
+        </div>
     </div>
 </div>
 

@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 
 import { LogLocation } from '../voice-log/log-location';
 import { GitignoreManager } from '../voice-log/gitignore-manager';
 import { VOICE_LOG_GITIGNORE_PATTERN } from '../constants';
+import { ensureStorageDir } from '../voice-log/storage-readme';
 
 type GitignoreBehavior = 'auto-add' | 'ask' | 'never';
 
@@ -13,7 +13,7 @@ export async function ensureGitignoreForFirstRecord(globalStorageDir: string): P
         return;
     }
 
-    fs.mkdirSync(location.storageDir, { recursive: true });
+    ensureStorageDir(location.storageDir);
 
     const behavior = vscode.workspace
         .getConfiguration('puthtotalk')

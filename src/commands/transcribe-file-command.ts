@@ -11,6 +11,8 @@ import {
     sanitizeFileName,
 } from '../voice-transcripts/transcript-formatter';
 import { formatDateTime } from '../lib/date-format';
+import { buildInitialPrompt, loadVocabulary } from '../voice-log/vocabulary-store';
+import { ensureStorageDir } from '../voice-log/storage-readme';
 
 const MEDIA_FILTERS = {
     'Audio / Video': ['mp3', 'mp4', 'mkv', 'webm', 'wav', 'm4a', 'flac', 'ogg', 'mov', 'avi', 'aac', 'opus'],
@@ -42,7 +44,7 @@ export function registerTranscribeFileCommand(
         const sourceName = path.basename(sourcePath);
 
         const location = LogLocation.resolve(globalStorageDir);
-        fs.mkdirSync(location.storageDir, { recursive: true });
+        ensureStorageDir(location.storageDir);
 
         const existing = await transcriptStoreRef.current.list();
         const duplicate = existing.find(item => item.sourceName === sourceName);
@@ -61,6 +63,8 @@ export function registerTranscribeFileCommand(
         const configuredLanguage = config.get<string>('language', 'auto');
         const language = configuredLanguage === 'auto' ? null : configuredLanguage;
         const model = config.get<string>('model', 'large-v3');
+        const vocabulary = loadVocabulary(location.storageDir);
+        const initialPrompt = buildInitialPrompt(vocabulary);
 
         const now = new Date();
         const timestamp = formatTimestampForFileName(now);
@@ -91,7 +95,7 @@ export function registerTranscribeFileCommand(
                             message: `${percent}% (${formatShortDuration(p.currentSec)} / ${formatShortDuration(p.totalSec)})`,
                             increment,
                         });
-                    });
+                    }, initialPrompt);
                 },
             );
 

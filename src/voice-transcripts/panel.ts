@@ -9,7 +9,8 @@ type PanelMessage =
     | { type: 'transcribeFile' }
     | { type: 'open'; id: string }
     | { type: 'reveal'; id: string }
-    | { type: 'delete'; id: string };
+    | { type: 'delete'; id: string }
+    | { type: 'editVocabulary' };
 
 export class VoiceTranscriptsPanel implements vscode.WebviewViewProvider, vscode.Disposable {
     private view: vscode.WebviewView | null = null;
@@ -95,6 +96,10 @@ export class VoiceTranscriptsPanel implements vscode.WebviewViewProvider, vscode
                 }
                 break;
             }
+
+            case 'editVocabulary':
+                await vscode.commands.executeCommand('puthtotalk.editVocabulary');
+                break;
         }
     }
 
