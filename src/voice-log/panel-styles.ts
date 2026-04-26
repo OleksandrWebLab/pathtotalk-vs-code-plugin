@@ -100,7 +100,7 @@ body {
 }
 
 .record-card {
-    padding: 6px 10px;
+    padding: 8px 10px;
     border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
     cursor: default;
     transition: background 0.1s;
@@ -150,14 +150,14 @@ body {
 .record-meta {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin-bottom: 3px;
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
 }
 
 .record-time { font-variant-numeric: tabular-nums; }
-.record-lang { opacity: 0.7; }
+.record-lang { opacity: 0.7; text-transform: uppercase; }
 .record-dur { opacity: 0.7; }
 .star-indicator { color: var(--vscode-charts-yellow); font-size: 10px; }
 

@@ -272,21 +272,21 @@ export const PANEL_SCRIPT = `
             const copyBtn = document.createElement('button');
             copyBtn.className = 'action-btn copy-btn';
             copyBtn.dataset.copyId = record.id;
-            copyBtn.textContent = '\u{1F4CB} Copy';
+            copyBtn.textContent = 'Copy';
             copyBtn.onclick = function() {
                 vscode.postMessage({ type: 'copy', id: record.id });
             };
 
             const starBtn = document.createElement('button');
             starBtn.className = 'action-btn';
-            starBtn.textContent = record.starred ? '\u2605 Unstar' : '\u2606 Star';
+            starBtn.textContent = record.starred ? 'Unstar' : 'Star';
             starBtn.onclick = function() {
                 vscode.postMessage({ type: 'star', id: record.id, starred: !record.starred });
             };
 
             const editBtn = document.createElement('button');
             editBtn.className = 'action-btn';
-            editBtn.textContent = '\u270F\uFE0F Edit';
+            editBtn.textContent = 'Edit';
             editBtn.onclick = function() {
                 editingId = record.id;
                 renderRecords(allRecords);
@@ -294,7 +294,7 @@ export const PANEL_SCRIPT = `
 
             const delBtn = document.createElement('button');
             delBtn.className = 'action-btn';
-            delBtn.textContent = '\u{1F5D1} Delete';
+            delBtn.textContent = 'Delete';
             delBtn.onclick = function() {
                 vscode.postMessage({ type: 'delete', id: record.id });
             };
@@ -312,10 +312,10 @@ export const PANEL_SCRIPT = `
     function flashCopied(id) {
         const btn = document.querySelector('[data-copy-id="' + id + '"]');
         if (!btn) return;
-        btn.textContent = '\u2713 Copied!';
+        btn.textContent = 'Copied';
         btn.classList.add('copied');
         setTimeout(function() {
-            btn.textContent = '\u{1F4CB} Copy';
+            btn.textContent = 'Copy';
             btn.classList.remove('copied');
         }, 1500);
     }

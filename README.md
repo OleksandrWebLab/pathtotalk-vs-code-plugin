@@ -116,6 +116,9 @@ Available commands (Command Palette → `Voice: ...`):
 - `Voice: Copy Last Transcription`
 - `Voice: Search Log`
 - `Voice: Export Log as Markdown`
+- `Voice: Open Log File` / `Voice: Clear Project Log`
+- `Voice: Edit Project Vocabulary` — open the per-project vocabulary file (custom terms biased into the Whisper prompt)
+- `Voice: Change Streaming Mode (off / adaptive / on)` — pick how transcription is delivered (see [Streaming modes](#streaming-modes))
 
 **Voice Transcripts (audio / video file transcription)**
 - `Voice: Transcribe File...` — pick an audio or video file, transcribe into a timestamped Markdown file
@@ -129,6 +132,22 @@ Available commands (Command Palette → `Voice: ...`):
 - `Voice: Download Model` — pre-download a model without switching to it
 - `Voice: Reset Extension` — wipe the Python venv and re-run the setup wizard
 
+**Storage**
+- `Voice: Open Project Storage Folder` — reveals the per-project storage directory
+- `Voice: Open Global Storage Folder` — reveals the extension's global storage (Python venv, models, fallback logs)
+
+### Streaming modes
+
+Three modes for how the dictation transcript is delivered, chosen via `Voice: Change Streaming Mode (off / adaptive / on)` or the `puthtotalk.streamingMode` setting.
+
+| Mode | When to use | How it works |
+|------|-------------|--------------|
+| `off` (classic) | Short messages, weak GPU / CPU only | Records → stops → transcribes the whole WAV in a single Whisper pass. Best accuracy on short clips, no GPU pressure during recording. |
+| `on` (live) | Long dictation when you want to see text as you speak | Streams raw PCM over WebSocket from the first second; Whisper emits partial confirmed/pending text every few seconds. Requires a CUDA GPU; on CPU it lags behind speech on `medium`+ models. |
+| `adaptive` (default recommendation for GPU users) | Mix of short and long messages | Buffers PCM in memory until `puthtotalk.adaptiveStreamingThresholdSec` (default 30s) is reached. Short recordings finish in classic mode (full accuracy). When the threshold is crossed, the buffered head is transcribed in one classic pass, then a live WebSocket session takes over for the remainder, so the final text is "classic head + streaming tail". |
+
+While a streaming or adaptive recording is in progress, the Voice Log shows a pinned draft card with a pulsing dot, a ticking duration timer and the live label (`Recording` while buffering in adaptive, `Live` once Whisper is producing partial text).
+
 ### Settings
 
 Open VS Code settings (`Ctrl+,`) and search for `puthtotalk`. Key options:
@@ -140,6 +159,9 @@ Open VS Code settings (`Ctrl+,`) and search for `puthtotalk`. Key options:
 - `puthtotalk.vadFilter` — enable voice activity detection (default `true`)
 - `puthtotalk.beamSize` — beam search size (1–10, default 5)
 - `puthtotalk.stopDelayMs` — extra recording time after Stop (ms, default `1000`)
+- `puthtotalk.streamingMode` — `off` / `on` / `adaptive` (see [Streaming modes](#streaming-modes), default `off`)
+- `puthtotalk.adaptiveStreamingThresholdSec` — when `streamingMode = adaptive`, switch from classic buffering to live transcription after this many seconds (default `30`, range 5–300)
+- `puthtotalk.streamingIntervalSec` — how often (seconds) the live transcriber emits a partial result (default `2`)
 - `puthtotalk.log.*` — Voice Log behavior (max records, grouping, notifications, gitignore handling)
 
 ---
@@ -147,16 +169,18 @@ Open VS Code settings (`Ctrl+,`) and search for `puthtotalk`. Key options:
 ## How it works
 
 - A bundled Python FastAPI server (`python/server.py`) runs `faster-whisper` for transcription
-- The extension spawns the server on activation, picks a free port, and talks to it over HTTP
+- The extension spawns the server on activation, picks a free port, and talks to it over HTTP for classic transcription and over WebSocket for live (streaming) transcription
 - Two sidebar views share the same server:
-  - **Voice Log** — records captured in the webview are sent as WAV, results stored line-by-line
-  - **Voice Transcripts** — a selected media file is transcribed in a streaming request that reports progress and returns timestamped segments
-- All persistent data lives under `.vscode/puthtotalk/` inside the workspace:
-  - `voice-log.jsonl` — dictation history (newest-first, `copied` flag clears the "unread" highlight after you copy)
-  - `<YYYY-MM-DD_HH-mm-ss>_<source-name>.md` — one file per transcribed recording, each with a JSON metadata header, summary (duration / language / model) and `[HH:MM:SS]` timestamps every 60s
-- Workspaces without a folder fall back to the extension's global storage
+  - **Voice Log** — records captured by the OS recorder (`parecord` / `arecord`) are sent as WAV (classic mode) or as a raw PCM stream (live / adaptive mode); results are stored line-by-line
+  - **Voice Transcripts** — a selected media file is transcribed in a streaming HTTP request that reports progress and returns timestamped segments
+- All persistent data lives under the extension's global storage (`globalStorageUri`), per project:
+  - `<global-storage>/projects/<project-hash>/voice-log.jsonl` — dictation history for that project (newest-first, `copied` flag clears the "unread" highlight after you copy)
+  - `<global-storage>/projects/<project-hash>/transcripts/<YYYY-MM-DD_HH-mm-ss>_<source-name>.md` — one file per transcribed recording, each with a JSON metadata header, summary (duration / language / model) and `[HH:MM:SS]` timestamps every 60s
+  - `<global-storage>/projects/<project-hash>/vocabulary.md` — per-project vocabulary biased into the Whisper prompt (edit via `Voice: Edit Project Vocabulary`)
+- Workspaces without a folder fall back to a shared `voice-logs-fallback` directory under the same global storage
+- Use `Voice: Open Project Storage Folder` / `Voice: Open Global Storage Folder` to reveal the actual paths in your file manager
 
-On first activation, a legacy `.vscode/voice-log.jsonl` is auto-migrated into the new `.vscode/puthtotalk/` directory.
+On first activation, a legacy `.vscode/voice-log.jsonl` and `.vscode/puthtotalk/` directory are auto-migrated into the per-project global storage layout above.
 
 Requirements on the host:
 
