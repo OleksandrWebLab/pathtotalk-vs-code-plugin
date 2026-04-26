@@ -2,7 +2,7 @@
   "name": "puthtotalk",
   "displayName": "PuthToTalk - Voice Input",
   "description": "Local voice input via Whisper. Dictate prompts and text, copy from Voice Log.",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "publisher": "artisanweblab",
   "repository": {
     "type": "git",
