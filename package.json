@@ -61,12 +61,12 @@
         "title": "Voice: Open Log File"
       },
       {
-        "command": "puthtotalk.addLogToGitignore",
-        "title": "Voice: Add Log to .gitignore"
+        "command": "puthtotalk.openStorageFolder",
+        "title": "Voice: Open Project Storage Folder"
       },
       {
-        "command": "puthtotalk.removeLogFromGitignore",
-        "title": "Voice: Remove Log from .gitignore"
+        "command": "puthtotalk.openGlobalStorageFolder",
+        "title": "Voice: Open Global Storage Folder"
       },
       {
         "command": "puthtotalk.changeModel",
@@ -295,16 +295,6 @@
           "type": "number",
           "default": 0,
           "description": "Folder index for multi-root workspace log storage"
-        },
-        "puthtotalk.gitignoreBehavior": {
-          "type": "string",
-          "default": "auto-add",
-          "enum": [
-            "auto-add",
-            "ask",
-            "never"
-          ],
-          "description": "How to handle .gitignore for voice-log.jsonl"
         }
       }
     }

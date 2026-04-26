@@ -5,9 +5,9 @@ import { CommandDeps } from './types';
 import { VoiceRecord } from '../voice-log/types';
 import { StreamingSession } from '../api-client';
 import { DraftRecord } from '../voice-log/log-store';
-import { LogLocation } from '../voice-log/log-location';
+import { ProjectStorage } from '../voice-log/project-storage';
 import { buildInitialPrompt, loadVocabulary } from '../voice-log/vocabulary-store';
-import { ensureGitignoreForFirstRecord } from './gitignore-first-record';
+import { ensureStorageDir } from '../voice-log/storage-readme';
 
 export function registerRecordingCommands(deps: CommandDeps): void {
     const { extensionContext, server, recorder, apiClient, getLogStore, globalStorageDir, output } = deps;
@@ -42,7 +42,8 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         const language = config.get<string>('language', 'auto');
         const interval = config.get<number>('streamingIntervalSec', 2);
 
-        const location = LogLocation.resolve(globalStorageDir);
+        const location = ProjectStorage.resolve(globalStorageDir);
+        ensureStorageDir(location.storageDir);
         const vocabulary = loadVocabulary(location.storageDir);
         const initialPrompt = buildInitialPrompt(vocabulary);
         if (initialPrompt) {
@@ -139,8 +140,6 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         if (stopResult.durationSec < 0.3 || !trimmed) {
             return;
         }
-
-        await ensureGitignoreForFirstRecord(globalStorageDir);
 
         const config = vscode.workspace.getConfiguration('puthtotalk');
         const record: VoiceRecord = {
@@ -270,7 +269,8 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             }
 
             const config = vscode.workspace.getConfiguration('puthtotalk');
-            const location = LogLocation.resolve(globalStorageDir);
+            const location = ProjectStorage.resolve(globalStorageDir);
+            ensureStorageDir(location.storageDir);
             const vocabulary = loadVocabulary(location.storageDir);
             const initialPrompt = buildInitialPrompt(vocabulary);
 
@@ -291,8 +291,6 @@ export function registerRecordingCommands(deps: CommandDeps): void {
                 vscode.window.showInformationMessage('PuthToTalk: No speech detected.');
                 return;
             }
-
-            await ensureGitignoreForFirstRecord(globalStorageDir);
 
             const record: VoiceRecord = {
                 id: crypto.randomUUID(),
