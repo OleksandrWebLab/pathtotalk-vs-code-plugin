@@ -136,6 +136,7 @@ body {
 
 .draft-confirmed { color: var(--vscode-foreground); }
 .draft-pending { color: var(--vscode-descriptionForeground); font-style: italic; }
+.draft-placeholder { color: var(--vscode-descriptionForeground); font-style: italic; opacity: 0.7; }
 
 .unread-dot {
     display: inline-block;

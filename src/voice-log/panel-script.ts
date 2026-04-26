@@ -7,6 +7,7 @@ export const PANEL_SCRIPT = `
     let editingId = null;
     let showingAllUnstarred = false;
     let currentDraft = null;
+    let draftTickInterval = null;
 
     document.getElementById('clearAllBtn').onclick = function() {
         vscode.postMessage({ type: 'clearAll' });
@@ -52,18 +53,57 @@ export const PANEL_SCRIPT = `
         const existing = document.getElementById('draftCard');
         if (!currentDraft) {
             if (existing) existing.remove();
+            stopDraftTicker();
             return;
         }
         const card = existing || buildDraftCard();
         const confirmedEl = card.querySelector('.draft-confirmed');
         const pendingEl = card.querySelector('.draft-pending');
-        const durationEl = card.querySelector('.draft-duration');
+        const labelEl = card.querySelector('.draft-label');
+        const placeholderEl = card.querySelector('.draft-placeholder');
+        const mode = currentDraft.mode || 'live';
+        labelEl.textContent = mode === 'recording' ? 'Recording' : 'Live';
         confirmedEl.textContent = currentDraft.confirmedText || '';
         pendingEl.textContent = currentDraft.pendingText || '';
-        durationEl.textContent = formatDraftDuration(currentDraft.durationSec || 0);
+        const hasText = (currentDraft.confirmedText || currentDraft.pendingText || '').length > 0;
+        placeholderEl.style.display = hasText ? 'none' : 'inline';
+        placeholderEl.textContent = mode === 'recording'
+            ? 'Recording... text will appear when streaming kicks in.'
+            : 'Listening...';
+        renderDraftDuration(card);
         if (!existing) {
             const list = document.getElementById('logList');
             list.insertBefore(card, list.firstChild);
+        }
+        startDraftTicker();
+    }
+
+    function renderDraftDuration(card) {
+        const durationEl = card.querySelector('.draft-duration');
+        if (!durationEl || !currentDraft) return;
+        const startMs = currentDraft.startedAt ? Date.parse(currentDraft.startedAt) : NaN;
+        const elapsedSec = isFinite(startMs)
+            ? Math.max(0, (Date.now() - startMs) / 1000)
+            : (currentDraft.durationSec || 0);
+        durationEl.textContent = formatDraftDuration(elapsedSec);
+    }
+
+    function startDraftTicker() {
+        if (draftTickInterval) return;
+        draftTickInterval = setInterval(function() {
+            const card = document.getElementById('draftCard');
+            if (!card || !currentDraft) {
+                stopDraftTicker();
+                return;
+            }
+            renderDraftDuration(card);
+        }, 500);
+    }
+
+    function stopDraftTicker() {
+        if (draftTickInterval) {
+            clearInterval(draftTickInterval);
+            draftTickInterval = null;
         }
     }
 
@@ -76,7 +116,7 @@ export const PANEL_SCRIPT = `
         meta.className = 'record-meta';
         meta.innerHTML =
             '<span class="draft-dot"></span>' +
-            '<span class="draft-label">Live</span>' +
+            '<span class="draft-label">Recording</span>' +
             '<span class="record-dur draft-duration">0s</span>';
         card.appendChild(meta);
 
@@ -86,8 +126,11 @@ export const PANEL_SCRIPT = `
         confirmed.className = 'draft-confirmed';
         const pending = document.createElement('span');
         pending.className = 'draft-pending';
+        const placeholder = document.createElement('span');
+        placeholder.className = 'draft-placeholder';
         text.appendChild(confirmed);
         text.appendChild(pending);
+        text.appendChild(placeholder);
         card.appendChild(text);
 
         return card;

@@ -12,6 +12,7 @@ import {
 } from './constants';
 
 type DeviceChoice = 'auto' | 'gpu' | 'cpu';
+type StreamingModeChoice = 'off' | 'on' | 'adaptive';
 
 interface DeviceOptionItem extends vscode.QuickPickItem {
     value: DeviceChoice;
@@ -228,24 +229,30 @@ export class SetupWizard {
         return picked?.value;
     }
 
-    private async pickStreamingMode(): Promise<boolean | undefined> {
-        const items: Array<vscode.QuickPickItem & { value: boolean }> = [
+    private async pickStreamingMode(): Promise<StreamingModeChoice | undefined> {
+        const items: Array<vscode.QuickPickItem & { value: StreamingModeChoice }> = [
             {
                 label: 'Off (classic)',
-                value: false,
+                value: 'off',
                 description: 'Default. Record → stop → transcribe',
                 detail: 'Lower CPU/GPU load. You wait a few seconds after stopping before the text appears.',
             },
             {
-                label: 'On (live transcription)',
-                value: true,
+                label: 'Adaptive',
+                value: 'adaptive',
+                description: 'Classic on short messages, live on long ones',
+                detail: 'Recordings under the threshold (30s by default) use classic mode. Longer ones switch to live automatically. Requires a GPU for the live phase.',
+            },
+            {
+                label: 'On (always live)',
+                value: 'on',
                 description: 'Text appears in Voice Log while you speak',
                 detail: 'Best with a GPU. Works on CPU too but lags behind speech on medium+ models.',
             },
         ];
 
         const picked = await vscode.window.showQuickPick(items, {
-            placeHolder: 'Enable streaming (live) transcription?',
+            placeHolder: 'Choose streaming (live) transcription mode',
             title: 'PuthToTalk: Streaming Mode',
             matchOnDetail: true,
         });

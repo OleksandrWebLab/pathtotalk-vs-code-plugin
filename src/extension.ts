@@ -24,6 +24,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const output = createTimestampedOutputChannel('PuthToTalk');
     context.subscriptions.push(output);
 
+    await migrateStreamingModeSetting(output);
+
     const setup = new SetupWizard(context);
     if (!(await setup.isReady())) {
         const ok = await setup.runFirstTimeSetup();
@@ -149,6 +151,31 @@ function createTranscriptStore(globalStorageDir: string): TranscriptStore {
 function updateStatusBarFallback(statusBar: StatusBar, globalStorageDir: string): void {
     const location = ProjectStorage.resolve(globalStorageDir);
     statusBar.setFallback(location.type === 'fallback');
+}
+
+async function migrateStreamingModeSetting(output: vscode.OutputChannel): Promise<void> {
+    const config = vscode.workspace.getConfiguration('puthtotalk');
+    const inspected = config.inspect<unknown>('streamingMode');
+    if (!inspected) {
+        return;
+    }
+    const candidates: Array<{ value: unknown; target: vscode.ConfigurationTarget }> = [
+        { value: inspected.globalValue, target: vscode.ConfigurationTarget.Global },
+        { value: inspected.workspaceValue, target: vscode.ConfigurationTarget.Workspace },
+        { value: inspected.workspaceFolderValue, target: vscode.ConfigurationTarget.WorkspaceFolder },
+    ];
+    for (const { value, target } of candidates) {
+        if (typeof value !== 'boolean') {
+            continue;
+        }
+        const next = value ? 'on' : 'off';
+        try {
+            await config.update('streamingMode', next, target);
+            output.appendLine(`[Migration] streamingMode boolean ${value} → "${next}" at target ${target}`);
+        } catch (err) {
+            output.appendLine(`[Migration] streamingMode update failed at target ${target}: ${err}`);
+        }
+    }
 }
 
 function notifyMigrated(storageDir: string): void {
