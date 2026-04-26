@@ -74,17 +74,17 @@ export const TRANSCRIPTS_PANEL_SCRIPT = `
 
         const openBtn = document.createElement('button');
         openBtn.className = 'action-btn';
-        openBtn.textContent = '\u{1F4C4} Open';
+        openBtn.textContent = 'Open';
         openBtn.onclick = function() { vscode.postMessage({ type: 'open', id: item.id }); };
 
         const revealBtn = document.createElement('button');
         revealBtn.className = 'action-btn';
-        revealBtn.textContent = '\u{1F4C2} Reveal';
+        revealBtn.textContent = 'Reveal';
         revealBtn.onclick = function() { vscode.postMessage({ type: 'reveal', id: item.id }); };
 
         const delBtn = document.createElement('button');
         delBtn.className = 'action-btn';
-        delBtn.textContent = '\u{1F5D1} Delete';
+        delBtn.textContent = 'Delete';
         delBtn.onclick = function() { vscode.postMessage({ type: 'delete', id: item.id }); };
 
         actions.appendChild(openBtn);

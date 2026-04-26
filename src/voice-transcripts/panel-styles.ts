@@ -142,10 +142,10 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 220px;
+    height: 200px;
     color: var(--vscode-descriptionForeground);
     font-size: 12px;
-    gap: 10px;
+    gap: 8px;
     text-align: center;
     padding: 20px;
 }

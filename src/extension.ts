@@ -17,7 +17,8 @@ import { registerModelCommands } from './commands/model-commands';
 import { registerServerCommands } from './commands/server-commands';
 import { registerTranscribeFileCommand } from './commands/transcribe-file-command';
 import { registerStorageCommands } from './commands/storage-commands';
-import { ensureVocabularyFile } from './voice-log/vocabulary-store';
+import { ensureVocabularyFile, getVocabularyTemplate, vocabularyPath } from './voice-log/vocabulary-store';
+import * as fs from 'fs';
 import { createTimestampedOutputChannel } from './lib/timestamped-channel';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -118,6 +119,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             const location = ProjectStorage.resolve(globalStorageDir);
             ProjectStorage.ensureStorageWithMeta(location);
             const filePath = ensureVocabularyFile(location.storageDir);
+            const doc = await vscode.workspace.openTextDocument(filePath);
+            await vscode.window.showTextDocument(doc);
+        }),
+        vscode.commands.registerCommand('puthtotalk.resetVocabularyToDefault', async () => {
+            const location = ProjectStorage.resolve(globalStorageDir);
+            ProjectStorage.ensureStorageWithMeta(location);
+            const filePath = vocabularyPath(location.storageDir);
+            if (fs.existsSync(filePath)) {
+                const choice = await vscode.window.showWarningMessage(
+                    'Replace the current project vocabulary with the bundled default list? Your current vocabulary file will be overwritten.',
+                    { modal: true },
+                    'Replace',
+                );
+                if (choice !== 'Replace') {
+                    return;
+                }
+            }
+            fs.writeFileSync(filePath, getVocabularyTemplate(), 'utf8');
             const doc = await vscode.workspace.openTextDocument(filePath);
             await vscode.window.showTextDocument(doc);
         }),

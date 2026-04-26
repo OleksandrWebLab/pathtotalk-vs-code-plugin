@@ -115,6 +115,10 @@
       {
         "command": "puthtotalk.editVocabulary",
         "title": "Voice: Edit Project Vocabulary"
+      },
+      {
+        "command": "puthtotalk.resetVocabularyToDefault",
+        "title": "Voice: Reset Project Vocabulary to Default"
       }
     ],
     "keybindings": [

@@ -282,6 +282,8 @@ export function registerRecordingCommands(deps: CommandDeps): void {
     async function finalizeAdaptiveAsClassic(): Promise<void> {
         output.appendLine('[Adaptive] finalize as classic (short message)');
 
+        clearDraft();
+
         let stopResult: { durationSec: number };
         try {
             stopResult = await recorder.stopStreaming();
