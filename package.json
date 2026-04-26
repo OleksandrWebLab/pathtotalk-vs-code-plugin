@@ -2,7 +2,7 @@
   "name": "puthtotalk",
   "displayName": "PuthToTalk - Voice Input",
   "description": "Local voice input via Whisper. Dictate prompts and text, copy from Voice Log.",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "publisher": "artisanweblab",
   "repository": {
     "type": "git",
@@ -110,7 +110,7 @@
       },
       {
         "command": "puthtotalk.toggleStreamingMode",
-        "title": "Voice: Toggle Streaming Mode (live transcription)"
+        "title": "Voice: Change Streaming Mode (off / adaptive / on)"
       },
       {
         "command": "puthtotalk.editVocabulary",
@@ -232,9 +232,26 @@
           "description": "Extra recording time (ms) after Stop is pressed, so the last words are not cut off"
         },
         "puthtotalk.streamingMode": {
-          "type": "boolean",
-          "default": false,
-          "description": "Transcribe speech in real time while you dictate (a draft entry in Voice Log updates live). Requires a CUDA GPU; on CPU it will overload the machine."
+          "type": "string",
+          "default": "off",
+          "enum": [
+            "off",
+            "on",
+            "adaptive"
+          ],
+          "enumDescriptions": [
+            "Classic: record, stop, then transcribe in one shot. Best accuracy on short messages.",
+            "Live: transcribe continuously while you speak. Requires a CUDA GPU; on CPU it will overload the machine.",
+            "Adaptive: stay in classic mode for short messages, switch to live mode automatically once recording exceeds the threshold. Requires a CUDA GPU for the live phase."
+          ],
+          "description": "Streaming transcription mode. 'adaptive' runs short recordings in classic mode (more accurate) and only engages live transcription on long ones (faster final result on long context)."
+        },
+        "puthtotalk.adaptiveStreamingThresholdSec": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 300,
+          "description": "In adaptive streaming mode, recording switches to live transcription once it exceeds this many seconds."
         },
         "puthtotalk.streamingIntervalSec": {
           "type": "number",

@@ -3,8 +3,11 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { VoiceRecord, LogFilter } from './types';
 
+export type DraftMode = 'recording' | 'live';
+
 export interface DraftRecord {
     id: string;
+    mode: DraftMode;
     confirmedText: string;
     pendingText: string;
     startedAt: string;
