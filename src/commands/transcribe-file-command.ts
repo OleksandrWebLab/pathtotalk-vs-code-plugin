@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { CommandDeps } from './types';
-import { LogLocation } from '../voice-log/log-location';
+import { ProjectStorage } from '../voice-log/project-storage';
 import { TranscriptStore } from '../voice-transcripts/transcript-store';
 import {
     formatTimestampForFileName,
@@ -12,7 +12,6 @@ import {
 } from '../voice-transcripts/transcript-formatter';
 import { formatDateTime } from '../lib/date-format';
 import { buildInitialPrompt, loadVocabulary } from '../voice-log/vocabulary-store';
-import { ensureStorageDir } from '../voice-log/storage-readme';
 
 const MEDIA_FILTERS = {
     'Audio / Video': ['mp3', 'mp4', 'mkv', 'webm', 'wav', 'm4a', 'flac', 'ogg', 'mov', 'avi', 'aac', 'opus'],
@@ -43,8 +42,8 @@ export function registerTranscribeFileCommand(
         const sourcePath = picked[0].fsPath;
         const sourceName = path.basename(sourcePath);
 
-        const location = LogLocation.resolve(globalStorageDir);
-        ensureStorageDir(location.storageDir);
+        const location = ProjectStorage.resolve(globalStorageDir);
+        ProjectStorage.ensureStorageWithMeta(location);
 
         const existing = await transcriptStoreRef.current.list();
         const duplicate = existing.find(item => item.sourceName === sourceName);

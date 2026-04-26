@@ -29,10 +29,7 @@ export const MODEL_DESCRIPTIONS: Record<WhisperModel, { size: string; detail: st
     'large-v3': { size: '~3 GB',   detail: 'GPU: ~8-10 GB VRAM • CPU: ~0.3x realtime (slower than speech) • Accuracy: best. Recommended for GPU.' },
 };
 
-export const PUTHTOTALK_STORAGE_DIR = '.vscode/puthtotalk';
 export const VOICE_LOG_FILE = 'voice-log.jsonl';
-export const VOICE_LOG_GITIGNORE_PATTERN = `${PUTHTOTALK_STORAGE_DIR}/${VOICE_LOG_FILE}`;
-export const LEGACY_VOICE_LOG_GITIGNORE_PATTERN = '.vscode/voice-log.jsonl';
 
 export const GLOBAL_STATE_KEYS = {
     setupMode: 'puthtotalk.setupMode',

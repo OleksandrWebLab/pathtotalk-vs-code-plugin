@@ -5,7 +5,7 @@ import { SetupWizard } from './setup-wizard';
 import { AudioRecorder } from './audio-recorder';
 import { ApiClient } from './api-client';
 import { LogStore } from './voice-log/log-store';
-import { LogLocation } from './voice-log/log-location';
+import { ProjectStorage } from './voice-log/project-storage';
 import { VoiceLogPanel } from './voice-log/panel';
 import { TranscriptStore } from './voice-transcripts/transcript-store';
 import { VoiceTranscriptsPanel } from './voice-transcripts/panel';
@@ -13,10 +13,10 @@ import { StatusBar } from './status-bar';
 import { CommandDeps } from './commands/types';
 import { registerRecordingCommands } from './commands/recording-commands';
 import { registerLogCommands } from './commands/log-commands';
-import { registerGitignoreCommands } from './commands/gitignore-commands';
 import { registerModelCommands } from './commands/model-commands';
 import { registerServerCommands } from './commands/server-commands';
 import { registerTranscribeFileCommand } from './commands/transcribe-file-command';
+import { registerStorageCommands } from './commands/storage-commands';
 import { ensureVocabularyFile } from './voice-log/vocabulary-store';
 import { createTimestampedOutputChannel } from './lib/timestamped-channel';
 
@@ -49,7 +49,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     });
 
     const globalStorageDir = context.globalStorageUri.fsPath;
-    const logStoreRef: { current: LogStore } = { current: createLogStore(globalStorageDir) };
+    const logStoreRef: { current: LogStore } = { current: createLogStore(globalStorageDir, output) };
     const transcriptStoreRef: { current: TranscriptStore } = { current: createTranscriptStore(globalStorageDir) };
 
     const recorder = new AudioRecorder();
@@ -82,7 +82,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     context.subscriptions.push(
         vscode.workspace.onDidChangeWorkspaceFolders(() => {
-            logStoreRef.current = createLogStore(globalStorageDir);
+            logStoreRef.current = createLogStore(globalStorageDir, output);
             voiceLogPanel.updateLogStore(logStoreRef.current);
             transcriptStoreRef.current = createTranscriptStore(globalStorageDir);
             voiceTranscriptsPanel.updateStore(transcriptStoreRef.current);
@@ -103,9 +103,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     registerRecordingCommands(deps);
     registerLogCommands(deps);
-    registerGitignoreCommands(deps);
     registerModelCommands(deps);
     registerServerCommands(deps);
+    registerStorageCommands(deps);
 
     context.subscriptions.push(
         vscode.commands.registerCommand('puthtotalk.showTranscripts', () => {
@@ -113,11 +113,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
         registerTranscribeFileCommand(deps, transcriptStoreRef),
         vscode.commands.registerCommand('puthtotalk.editVocabulary', async () => {
-            const location = LogLocation.resolve(globalStorageDir);
-            if (location.type === 'fallback' || !location.workspaceRoot) {
-                vscode.window.showWarningMessage('Open a workspace folder to edit project vocabulary.');
-                return;
-            }
+            const location = ProjectStorage.resolve(globalStorageDir);
+            ProjectStorage.ensureStorageWithMeta(location);
             const filePath = ensureVocabularyFile(location.storageDir);
             const doc = await vscode.workspace.openTextDocument(filePath);
             await vscode.window.showTextDocument(doc);
@@ -133,18 +130,34 @@ export async function deactivate(): Promise<void> {
     // ServerManager.dispose() handles process kill via subscriptions
 }
 
-function createLogStore(globalStorageDir: string): LogStore {
-    const location = LogLocation.resolve(globalStorageDir);
-    LogLocation.migrateLegacyIfNeeded(location);
-    return new LogStore(location.path);
+function createLogStore(globalStorageDir: string, output: vscode.OutputChannel): LogStore {
+    const location = ProjectStorage.resolve(globalStorageDir);
+    const migrated = ProjectStorage.migrateLegacyIfNeeded(globalStorageDir, location);
+    ProjectStorage.ensureStorageWithMeta(location);
+    if (migrated) {
+        output.appendLine(`[Storage] Migrated legacy data to ${location.storageDir}`);
+        notifyMigrated(location.storageDir);
+    }
+    return new LogStore(location.logPath);
 }
 
 function createTranscriptStore(globalStorageDir: string): TranscriptStore {
-    const location = LogLocation.resolve(globalStorageDir);
+    const location = ProjectStorage.resolve(globalStorageDir);
     return new TranscriptStore(location.storageDir);
 }
 
 function updateStatusBarFallback(statusBar: StatusBar, globalStorageDir: string): void {
-    const location = LogLocation.resolve(globalStorageDir);
+    const location = ProjectStorage.resolve(globalStorageDir);
     statusBar.setFallback(location.type === 'fallback');
+}
+
+function notifyMigrated(storageDir: string): void {
+    vscode.window.showInformationMessage(
+        'PuthToTalk: voice data moved to global storage. Old project folder (.vscode/puthtotalk) was removed.',
+        'Open Storage Folder',
+    ).then(choice => {
+        if (choice === 'Open Storage Folder') {
+            vscode.env.openExternal(vscode.Uri.file(storageDir));
+        }
+    });
 }

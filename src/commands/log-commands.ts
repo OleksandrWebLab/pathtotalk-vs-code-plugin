@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 
 import { CommandDeps } from './types';
-import { LogLocation } from '../voice-log/log-location';
+import { ProjectStorage } from '../voice-log/project-storage';
 
 export function registerLogCommands(deps: CommandDeps): void {
     const { extensionContext, voiceLogPanel, getLogStore, globalStorageDir } = deps;
@@ -48,12 +48,12 @@ export function registerLogCommands(deps: CommandDeps): void {
         }),
 
         vscode.commands.registerCommand('puthtotalk.openLogFile', () => {
-            const location = LogLocation.resolve(globalStorageDir);
-            if (!fs.existsSync(location.path)) {
+            const location = ProjectStorage.resolve(globalStorageDir);
+            if (!fs.existsSync(location.logPath)) {
                 vscode.window.showInformationMessage('No voice log file yet.');
                 return;
             }
-            vscode.workspace.openTextDocument(vscode.Uri.file(location.path))
+            vscode.workspace.openTextDocument(vscode.Uri.file(location.logPath))
                 .then(doc => vscode.window.showTextDocument(doc));
         }),
     );
