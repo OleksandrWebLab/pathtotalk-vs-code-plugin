@@ -116,6 +116,14 @@ body {
 }
 .record-card.draft:hover { background: color-mix(in srgb, var(--vscode-charts-red) 16%, transparent); }
 
+.record-card.draft[data-mode="transcribing"] {
+    background: color-mix(in srgb, var(--vscode-charts-blue) 10%, transparent);
+    border-left: 2px solid var(--vscode-charts-blue);
+}
+.record-card.draft[data-mode="transcribing"]:hover {
+    background: color-mix(in srgb, var(--vscode-charts-blue) 16%, transparent);
+}
+
 .draft-dot {
     display: inline-block;
     width: 7px;
@@ -123,6 +131,10 @@ body {
     border-radius: 50%;
     background: var(--vscode-charts-red);
     animation: pulse 1s ease-in-out infinite;
+}
+.record-card.draft[data-mode="transcribing"] .draft-dot {
+    background: var(--vscode-charts-blue);
+    animation: pulse 1.4s ease-in-out infinite;
 }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
@@ -132,6 +144,9 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--vscode-charts-red);
+}
+.record-card.draft[data-mode="transcribing"] .draft-label {
+    color: var(--vscode-charts-blue);
 }
 
 .draft-confirmed { color: var(--vscode-foreground); }

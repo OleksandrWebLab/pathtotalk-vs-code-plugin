@@ -48,6 +48,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
     let streamingDraftId: string = '';
     let streamingFinalText: string = '';
     let streamingLanguage: string = '';
+    let streamingFinalizing: boolean = false;
 
     let adaptiveActive: boolean = false;
     let adaptiveBuffer: Buffer[] = [];
@@ -77,6 +78,21 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         getLogStore().setDraft(draft);
     }
 
+    function publishTranscribingDraft(durationSec: number, confirmed: string): void {
+        if (!streamingDraftId || !streamingStartMs) {
+            return;
+        }
+        const draft: DraftRecord = {
+            id: streamingDraftId,
+            mode: 'transcribing',
+            confirmedText: confirmed,
+            pendingText: '',
+            startedAt: new Date(streamingStartMs).toISOString(),
+            durationSec,
+        };
+        getLogStore().setDraft(draft);
+    }
+
     function joinHeadAndTail(head: string, tail: string): string {
         if (!head) {
             return tail;
@@ -99,6 +115,9 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             }
             const combinedConfirmed = joinHeadAndTail(headText, partial.confirmedText);
             streamingFinalText = combinedConfirmed;
+            if (streamingFinalizing) {
+                return;
+            }
             publishDraft('live', combinedConfirmed, partial.pendingText);
         });
     }
@@ -122,6 +141,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         streamingFinalText = '';
         streamingDraftId = crypto.randomUUID();
         streamingStartMs = Date.now();
+        streamingFinalizing = false;
 
         try {
             streamingSession = await apiClient.openTranscribeStream(
@@ -180,6 +200,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         streamingFinalText = '';
         streamingDraftId = crypto.randomUUID();
         streamingStartMs = Date.now();
+        streamingFinalizing = false;
         adaptiveActive = true;
         adaptiveBuffer = [];
         adaptiveUpgradePromise = null;
@@ -282,14 +303,13 @@ export function registerRecordingCommands(deps: CommandDeps): void {
     async function finalizeAdaptiveAsClassic(): Promise<void> {
         output.appendLine('[Adaptive] finalize as classic (short message)');
 
-        clearDraft();
-
         let stopResult: { durationSec: number };
         try {
             stopResult = await recorder.stopStreaming();
             output.appendLine(`[Adaptive] recorder stopped, duration=${stopResult.durationSec.toFixed(2)}s`);
         } catch (err) {
             output.appendLine(`[Adaptive] recorder stopStreaming error: ${err}`);
+            clearDraft();
             throw err;
         }
 
@@ -297,8 +317,11 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         adaptiveBuffer = [];
 
         if (stopResult.durationSec < 0.3 || bufferedChunks.length === 0) {
+            clearDraft();
             return;
         }
+
+        publishTranscribingDraft(stopResult.durationSec, '');
 
         const wavBuffer = encodePcmToWav(bufferedChunks);
         const config = vscode.workspace.getConfiguration('puthtotalk');
@@ -312,9 +335,12 @@ export function registerRecordingCommands(deps: CommandDeps): void {
                 adaptiveInitialPrompt,
             );
         } catch (err) {
+            clearDraft();
             vscode.window.showErrorMessage(`Transcription failed: ${err}`);
             return;
         }
+
+        clearDraft();
 
         if (!transcribeResult.text.trim()) {
             vscode.window.showInformationMessage('PuthToTalk: No speech detected.');
@@ -364,6 +390,9 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             clearDraft();
             throw err;
         }
+
+        streamingFinalizing = true;
+        publishTranscribingDraft(stopResult.durationSec, streamingFinalText);
 
         let finalText = streamingFinalText;
         try {
@@ -443,6 +472,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         adaptiveBuffer = [];
         adaptiveUpgradePromise = null;
         adaptiveHeadText = '';
+        streamingFinalizing = false;
 
         if (streamingSession) {
             streamingSession.cancel();
@@ -539,6 +569,9 @@ export function registerRecordingCommands(deps: CommandDeps): void {
                 } else if (mode === 'adaptive') {
                     await startAdaptiveFlow();
                 } else {
+                    streamingStartMs = Date.now();
+                    streamingDraftId = crypto.randomUUID();
+                    publishDraft('recording', '', '');
                     await recorder.start();
                 }
             } catch (err) {
@@ -581,13 +614,17 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             try {
                 result = await recorder.stop();
             } catch (err) {
+                clearDraft();
                 vscode.window.showErrorMessage(`Recording failed: ${err}`);
                 return;
             }
 
             if (!result || result.durationSec < 0.3) {
+                clearDraft();
                 return;
             }
+
+            publishTranscribingDraft(result.durationSec, '');
 
             const config = vscode.workspace.getConfiguration('puthtotalk');
             const location = ProjectStorage.resolve(globalStorageDir);
@@ -604,9 +641,12 @@ export function registerRecordingCommands(deps: CommandDeps): void {
                     initialPrompt,
                 );
             } catch (err) {
+                clearDraft();
                 vscode.window.showErrorMessage(`Transcription failed: ${err}`);
                 return;
             }
+
+            clearDraft();
 
             if (!transcribeResult.text.trim()) {
                 vscode.window.showInformationMessage('PuthToTalk: No speech detected.');
@@ -614,8 +654,8 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             }
 
             const record: VoiceRecord = {
-                id: crypto.randomUUID(),
-                timestamp: new Date().toISOString(),
+                id: streamingDraftId || crypto.randomUUID(),
+                timestamp: new Date(streamingStartMs || Date.now()).toISOString(),
                 text: transcribeResult.text,
                 language: transcribeResult.language,
                 duration_sec: transcribeResult.durationSec,

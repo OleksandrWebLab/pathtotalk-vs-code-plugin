@@ -62,25 +62,47 @@ export const PANEL_SCRIPT = `
         const labelEl = card.querySelector('.draft-label');
         const placeholderEl = card.querySelector('.draft-placeholder');
         const mode = currentDraft.mode || 'live';
-        labelEl.textContent = mode === 'recording' ? 'Recording' : 'Live';
+        card.dataset.mode = mode;
+        if (mode === 'transcribing') {
+            labelEl.textContent = 'Transcribing';
+        } else if (mode === 'recording') {
+            labelEl.textContent = 'Recording';
+        } else {
+            labelEl.textContent = 'Live';
+        }
         confirmedEl.textContent = currentDraft.confirmedText || '';
         pendingEl.textContent = currentDraft.pendingText || '';
         const hasText = (currentDraft.confirmedText || currentDraft.pendingText || '').length > 0;
         placeholderEl.style.display = hasText ? 'none' : 'inline';
-        placeholderEl.textContent = mode === 'recording'
-            ? 'Recording... text will appear when streaming kicks in.'
-            : 'Listening...';
+        if (mode === 'transcribing') {
+            placeholderEl.textContent = hasText
+                ? ''
+                : 'Transcribing your speech...';
+        } else if (mode === 'recording') {
+            placeholderEl.textContent = 'Recording...';
+        } else {
+            placeholderEl.textContent = 'Listening...';
+        }
         renderDraftDuration(card);
         if (!existing) {
             const list = document.getElementById('logList');
             list.insertBefore(card, list.firstChild);
         }
-        startDraftTicker();
+        if (mode === 'transcribing') {
+            stopDraftTicker();
+        } else {
+            startDraftTicker();
+        }
     }
 
     function renderDraftDuration(card) {
         const durationEl = card.querySelector('.draft-duration');
         if (!durationEl || !currentDraft) return;
+        const mode = currentDraft.mode || 'live';
+        if (mode === 'transcribing') {
+            durationEl.textContent = formatDraftDuration(currentDraft.durationSec || 0);
+            return;
+        }
         const startMs = currentDraft.startedAt ? Date.parse(currentDraft.startedAt) : NaN;
         const elapsedSec = isFinite(startMs)
             ? Math.max(0, (Date.now() - startMs) / 1000)
