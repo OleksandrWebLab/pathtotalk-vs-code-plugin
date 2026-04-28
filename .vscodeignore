@@ -17,4 +17,6 @@ package-lock.json
 python/__pycache__/**
 python/*.pyc
 python/.venv/**
+python/build/**
+python/*.egg-info/**
 *.vsix
