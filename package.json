@@ -2,7 +2,7 @@
   "name": "pathtotalk",
   "displayName": "PathToTalk - Voice Input",
   "description": "Local voice input via Whisper. Dictate prompts and text, copy from Voice Log.",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "publisher": "artisanweblab",
   "repository": {
     "type": "git",
