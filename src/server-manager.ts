@@ -16,6 +16,8 @@ export class ServerManager implements vscode.Disposable {
     private healthCheckTimer: NodeJS.Timeout | null = null;
     private healthFailCount: number = 0;
     private readonly healthFailThreshold = 4;
+    private oomDetected: boolean = false;
+    private isServerOwner: boolean = false;
 
     private readonly onStatusChangedEmitter = new vscode.EventEmitter<ServerStatus>();
     readonly onStatusChanged = this.onStatusChangedEmitter.event;
@@ -44,8 +46,16 @@ export class ServerManager implements vscode.Disposable {
             return;
         }
 
-        this._token = crypto.randomBytes(32).toString('hex');
         this.setStatus('starting');
+
+        if (await this.tryAdoptExistingServer()) {
+            this.outputChannel.appendLine(`[ServerManager] Adopted existing server on port ${this._port}`);
+            this.setStatus('ready');
+            this.startHealthCheck();
+            return;
+        }
+
+        this._token = crypto.randomBytes(32).toString('hex');
 
         try {
             await this.spawnServer();
@@ -59,7 +69,11 @@ export class ServerManager implements vscode.Disposable {
     async stop(): Promise<void> {
         this.stopHealthCheck();
 
-        if (!this.process) {
+        if (!this.isServerOwner) {
+            // Non-owner: just forget the reference, server keeps running for other windows
+            this._port = null;
+            this._token = '';
+            this.setStatus('stopped');
             return;
         }
 
@@ -84,6 +98,13 @@ export class ServerManager implements vscode.Disposable {
 
         this.process = null;
         this._port = null;
+        this.isServerOwner = false;
+
+        const tokenFile = this.getTokenFilePath();
+        if (fs.existsSync(tokenFile)) {
+            fs.unlinkSync(tokenFile);
+        }
+
         this.setStatus('stopped');
     }
 
@@ -91,6 +112,48 @@ export class ServerManager implements vscode.Disposable {
         await this.stop();
         await new Promise(resolve => setTimeout(resolve, 500));
         await this.start();
+    }
+
+    private getTokenFilePath(): string {
+        return path.join(this.context.globalStorageUri.fsPath, 'server.token');
+    }
+
+    private async tryAdoptExistingServer(): Promise<boolean> {
+        const storageDir = this.context.globalStorageUri.fsPath;
+        const portFile = path.join(storageDir, 'server.port');
+        const tokenFile = this.getTokenFilePath();
+
+        if (!fs.existsSync(portFile) || !fs.existsSync(tokenFile)) {
+            return false;
+        }
+
+        const port = parseInt(fs.readFileSync(portFile, 'utf8').trim(), 10);
+        const token = fs.readFileSync(tokenFile, 'utf8').trim();
+
+        if (isNaN(port) || port <= 0 || !token) {
+            return false;
+        }
+
+        try {
+            const response = await fetch(`http://127.0.0.1:${port}/health`, {
+                headers: { 'X-Extension-Token': token },
+                signal: AbortSignal.timeout(2000),
+            });
+            if (!response.ok) {
+                return false;
+            }
+            const body = await response.json() as { status: string };
+            if (body.status !== 'ready') {
+                return false;
+            }
+        } catch {
+            return false;
+        }
+
+        this._port = port;
+        this._token = token;
+        this.isServerOwner = false;
+        return true;
     }
 
     private async spawnServer(): Promise<void> {
@@ -146,8 +209,21 @@ export class ServerManager implements vscode.Disposable {
             }
         };
 
+        this.oomDetected = false;
+
+        const detectOom = (line: string): void => {
+            if (line.toLowerCase().includes('out of memory')) {
+                this.oomDetected = true;
+            }
+        };
+
         this.process.stdout?.on('data', (data: Buffer) => forEachLine(data));
-        this.process.stderr?.on('data', (data: Buffer) => forEachLine(data));
+        this.process.stderr?.on('data', (data: Buffer) => {
+            forEachLine(data);
+            for (const line of data.toString().split(/[\r\n]+/)) {
+                detectOom(line);
+            }
+        });
 
         this.process.on('exit', (code) => {
             this.outputChannel.appendLine(`[ServerManager] Process exited with code ${code}`);
@@ -218,6 +294,9 @@ export class ServerManager implements vscode.Disposable {
             this._port = null;
             throw err;
         }
+
+        this.isServerOwner = true;
+        fs.writeFileSync(this.getTokenFilePath(), this._token, 'utf8');
 
         this.setStatus('ready');
         this.outputChannel.appendLine(`[ServerManager] Ready on port ${this._port}`);
@@ -332,6 +411,12 @@ export class ServerManager implements vscode.Disposable {
                             `[ServerManager] Health check failed ${this.healthFailCount} times, marking error`
                         );
                         this.setStatus('error');
+                        if (!this.isServerOwner) {
+                            // Owner will respawn; give it a head start then try to adopt
+                            this._port = null;
+                            this._token = '';
+                            setTimeout(() => this.start(), 3000);
+                        }
                     }
                 }
             }
@@ -349,6 +434,20 @@ export class ServerManager implements vscode.Disposable {
         this.setStatus('error');
         this.process = null;
         this._port = null;
+
+        if (this.oomDetected) {
+            this.oomDetected = false;
+            this.outputChannel.appendLine('[ServerManager] GPU out of memory - not restarting.');
+            vscode.window.showErrorMessage(
+                'PuthToTalk: Not enough GPU memory to load the model. Try selecting a smaller model in settings.',
+                'Open Settings'
+            ).then(choice => {
+                if (choice === 'Open Settings') {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'puthtotalk.model');
+                }
+            });
+            return;
+        }
 
         const now = Date.now();
         if (now - this.restartWindowStart > 60000) {
