@@ -19,11 +19,14 @@ import { registerTranscribeFileCommand } from './commands/transcribe-file-comman
 import { registerStorageCommands } from './commands/storage-commands';
 import { ensureVocabularyFile, getVocabularyTemplate, vocabularyPath } from './voice-log/vocabulary-store';
 import * as fs from 'fs';
+import * as path from 'path';
 import { createTimestampedOutputChannel } from './lib/timestamped-channel';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-    const output = createTimestampedOutputChannel('PuthToTalk');
+    const output = createTimestampedOutputChannel('PathToTalk');
     context.subscriptions.push(output);
+
+    migrateLegacyGlobalStorage(context.globalStorageUri.fsPath, output);
 
     await migrateStreamingModeSetting(output);
 
@@ -60,13 +63,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     const voiceLogPanel = new VoiceLogPanel(logStoreRef.current, context.extensionUri);
     context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider('puthtotalk.voiceLog', voiceLogPanel),
+        vscode.window.registerWebviewViewProvider('pathtotalk.voiceLog', voiceLogPanel),
         voiceLogPanel,
     );
 
     const voiceTranscriptsPanel = new VoiceTranscriptsPanel(transcriptStoreRef.current, context.extensionUri);
     context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider('puthtotalk.voiceTranscripts', voiceTranscriptsPanel),
+        vscode.window.registerWebviewViewProvider('pathtotalk.voiceTranscripts', voiceTranscriptsPanel),
         voiceTranscriptsPanel,
         transcriptStoreRef.current,
     );
@@ -78,7 +81,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(
         recorder.onStateChanged(state => {
             if (state === 'idle') {
-                vscode.commands.executeCommand('setContext', 'puthtotalk.isRecording', false);
+                vscode.commands.executeCommand('setContext', 'pathtotalk.isRecording', false);
             }
         }),
     );
@@ -111,18 +114,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerStorageCommands(deps);
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('puthtotalk.showTranscripts', () => {
-            vscode.commands.executeCommand('puthtotalk.voiceTranscripts.focus');
+        vscode.commands.registerCommand('pathtotalk.showTranscripts', () => {
+            vscode.commands.executeCommand('pathtotalk.voiceTranscripts.focus');
         }),
         registerTranscribeFileCommand(deps, transcriptStoreRef),
-        vscode.commands.registerCommand('puthtotalk.editVocabulary', async () => {
+        vscode.commands.registerCommand('pathtotalk.editVocabulary', async () => {
             const location = ProjectStorage.resolve(globalStorageDir);
             ProjectStorage.ensureStorageWithMeta(location);
             const filePath = ensureVocabularyFile(location.storageDir);
             const doc = await vscode.workspace.openTextDocument(filePath);
             await vscode.window.showTextDocument(doc);
         }),
-        vscode.commands.registerCommand('puthtotalk.resetVocabularyToDefault', async () => {
+        vscode.commands.registerCommand('pathtotalk.resetVocabularyToDefault', async () => {
             const location = ProjectStorage.resolve(globalStorageDir);
             ProjectStorage.ensureStorageWithMeta(location);
             const filePath = vocabularyPath(location.storageDir);
@@ -142,8 +145,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
     );
 
-    if (vscode.workspace.getConfiguration('puthtotalk.log').get<boolean>('autoOpenPanel', false)) {
-        vscode.commands.executeCommand('puthtotalk.showLog');
+    if (vscode.workspace.getConfiguration('pathtotalk.log').get<boolean>('autoOpenPanel', false)) {
+        vscode.commands.executeCommand('pathtotalk.showLog');
     }
 }
 
@@ -172,8 +175,37 @@ function updateStatusBarFallback(statusBar: StatusBar, globalStorageDir: string)
     statusBar.setFallback(location.type === 'fallback');
 }
 
+function migrateLegacyGlobalStorage(currentDir: string, output: vscode.OutputChannel): void {
+    const parentDir = path.dirname(currentDir);
+    const currentName = path.basename(currentDir);
+    if (!currentName.includes('pathtotalk')) {
+        return;
+    }
+    const legacyName = currentName.replace('pathtotalk', 'puthtotalk');
+    const legacyDir = path.join(parentDir, legacyName);
+
+    if (!fs.existsSync(legacyDir)) {
+        return;
+    }
+
+    if (fs.existsSync(currentDir) && fs.readdirSync(currentDir).length > 0) {
+        output.appendLine(`[Migration] Skipping legacy storage move: ${currentDir} already populated`);
+        return;
+    }
+
+    try {
+        if (fs.existsSync(currentDir)) {
+            fs.rmdirSync(currentDir);
+        }
+        fs.renameSync(legacyDir, currentDir);
+        output.appendLine(`[Migration] Moved legacy global storage ${legacyDir} → ${currentDir}`);
+    } catch (err) {
+        output.appendLine(`[Migration] Failed to move legacy global storage: ${err}`);
+    }
+}
+
 async function migrateStreamingModeSetting(output: vscode.OutputChannel): Promise<void> {
-    const config = vscode.workspace.getConfiguration('puthtotalk');
+    const config = vscode.workspace.getConfiguration('pathtotalk');
     const inspected = config.inspect<unknown>('streamingMode');
     if (!inspected) {
         return;
@@ -199,7 +231,7 @@ async function migrateStreamingModeSetting(output: vscode.OutputChannel): Promis
 
 function notifyMigrated(storageDir: string): void {
     vscode.window.showInformationMessage(
-        'PuthToTalk: voice data moved to global storage. Old project folder (.vscode/puthtotalk) was removed.',
+        'PathToTalk: voice data moved to global storage. Old project folder (.vscode/pathtotalk) was removed.',
         'Open Storage Folder',
     ).then(choice => {
         if (choice === 'Open Storage Folder') {

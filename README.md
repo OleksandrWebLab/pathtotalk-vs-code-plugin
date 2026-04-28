@@ -1,4 +1,4 @@
-# PuthToTalk — Voice Input for VS Code
+# PathToTalk — Voice Input for VS Code
 
 Local voice input and media transcription via Whisper. Dictate prompts and text into the Voice Log, or drop an audio/video file and get a timestamped transcript — all through a single local Whisper server.
 
@@ -38,10 +38,10 @@ Provided **AS IS**, with no obligations on my side.
 
 ### Option A — Install a prebuilt `.vsix` from GitHub Releases
 
-1. Open the [Releases page](../../releases) and download the latest `puthtotalk-<version>.vsix`
+1. Open the [Releases page](../../releases) and download the latest `pathtotalk-<version>.vsix`
 2. Install it into VS Code:
    ```bash
-   code --install-extension puthtotalk-<version>.vsix
+   code --install-extension pathtotalk-<version>.vsix
    ```
    or in VS Code UI: `Extensions` panel → `...` menu → `Install from VSIX...` → pick the file
 3. Reload VS Code
@@ -55,8 +55,8 @@ Provided **AS IS**, with no obligations on my side.
 Requires Docker + Docker Compose (no local Node.js / Python needed).
 
 ```bash
-git clone <your-repo-url> puthtotalk
-cd puthtotalk
+git clone <your-repo-url> pathtotalk
+cd pathtotalk
 
 make install        # install npm deps (inside Docker)
 make build          # compile TypeScript + package .vsix
@@ -88,7 +88,7 @@ The [`tools/release.sh`](tools/release.sh) script will:
 
 1. Validate the working tree is clean and the tag doesn't exist yet
 2. Bump `package.json` + `package-lock.json` to the given version (via `npm version`)
-3. Run `make clean && make build` to produce `puthtotalk-<version>.vsix`
+3. Run `make clean && make build` to produce `pathtotalk-<version>.vsix`
 4. Commit `chore: release vX.Y.Z`, create tag `vX.Y.Z`, push both to `origin`
 5. Create a GitHub Release with the `.vsix` attached and auto-generated notes from commits
 
@@ -104,7 +104,7 @@ Default keybindings:
 | `Ctrl+Alt+M` | Cancel recording — discard audio, no transcription (while recording) |
 | `Ctrl+Shift+L` | Open Voice Log |
 
-The `Voice: Recording` status bar item is also clickable — left-click toggles recording on and off. When pressed Stop, the recorder keeps capturing for an extra `puthtotalk.stopDelayMs` milliseconds (default 1s) so the last words aren't cut off.
+The `Voice: Recording` status bar item is also clickable — left-click toggles recording on and off. When pressed Stop, the recorder keeps capturing for an extra `pathtotalk.stopDelayMs` milliseconds (default 1s) so the last words aren't cut off.
 
 Available commands (Command Palette → `Voice: ...`):
 
@@ -138,31 +138,31 @@ Available commands (Command Palette → `Voice: ...`):
 
 ### Streaming modes
 
-Three modes for how the dictation transcript is delivered, chosen via `Voice: Change Streaming Mode (off / adaptive / on)` or the `puthtotalk.streamingMode` setting.
+Three modes for how the dictation transcript is delivered, chosen via `Voice: Change Streaming Mode (off / adaptive / on)` or the `pathtotalk.streamingMode` setting.
 
 | Mode | When to use | How it works |
 |------|-------------|--------------|
 | `off` (classic) | Short messages, weak GPU / CPU only | Records → stops → transcribes the whole WAV in a single Whisper pass. Best accuracy on short clips, no GPU pressure during recording. |
 | `on` (live) | Long dictation when you want to see text as you speak | Streams raw PCM over WebSocket from the first second; Whisper emits partial confirmed/pending text every few seconds. Requires a CUDA GPU; on CPU it lags behind speech on `medium`+ models. |
-| `adaptive` (default recommendation for GPU users) | Mix of short and long messages | Buffers PCM in memory until `puthtotalk.adaptiveStreamingThresholdSec` (default 30s) is reached. Short recordings finish in classic mode (full accuracy). When the threshold is crossed, the buffered head is transcribed in one classic pass, then a live WebSocket session takes over for the remainder, so the final text is "classic head + streaming tail". |
+| `adaptive` (default recommendation for GPU users) | Mix of short and long messages | Buffers PCM in memory until `pathtotalk.adaptiveStreamingThresholdSec` (default 30s) is reached. Short recordings finish in classic mode (full accuracy). When the threshold is crossed, the buffered head is transcribed in one classic pass, then a live WebSocket session takes over for the remainder, so the final text is "classic head + streaming tail". |
 
 While a streaming or adaptive recording is in progress, the Voice Log shows a pinned draft card with a pulsing dot, a ticking duration timer and the live label (`Recording` while buffering in adaptive, `Live` once Whisper is producing partial text).
 
 ### Settings
 
-Open VS Code settings (`Ctrl+,`) and search for `puthtotalk`. Key options:
+Open VS Code settings (`Ctrl+,`) and search for `pathtotalk`. Key options:
 
-- `puthtotalk.model` — Whisper model (default `large-v3`)
-- `puthtotalk.device` — compute device (`auto` picks CUDA if available, otherwise CPU)
-- `puthtotalk.language` — transcription language or `auto`
-- `puthtotalk.computeType` — `auto` / `float16` / `int8_float16` / `int8` / `float32`
-- `puthtotalk.vadFilter` — enable voice activity detection (default `true`)
-- `puthtotalk.beamSize` — beam search size (1–10, default 5)
-- `puthtotalk.stopDelayMs` — extra recording time after Stop (ms, default `1000`)
-- `puthtotalk.streamingMode` — `off` / `on` / `adaptive` (see [Streaming modes](#streaming-modes), default `off`)
-- `puthtotalk.adaptiveStreamingThresholdSec` — when `streamingMode = adaptive`, switch from classic buffering to live transcription after this many seconds (default `30`, range 5–300)
-- `puthtotalk.streamingIntervalSec` — how often (seconds) the live transcriber emits a partial result (default `2`)
-- `puthtotalk.log.*` — Voice Log behavior (max records, grouping, notifications, gitignore handling)
+- `pathtotalk.model` — Whisper model (default `large-v3`)
+- `pathtotalk.device` — compute device (`auto` picks CUDA if available, otherwise CPU)
+- `pathtotalk.language` — transcription language or `auto`
+- `pathtotalk.computeType` — `auto` / `float16` / `int8_float16` / `int8` / `float32`
+- `pathtotalk.vadFilter` — enable voice activity detection (default `true`)
+- `pathtotalk.beamSize` — beam search size (1–10, default 5)
+- `pathtotalk.stopDelayMs` — extra recording time after Stop (ms, default `1000`)
+- `pathtotalk.streamingMode` — `off` / `on` / `adaptive` (see [Streaming modes](#streaming-modes), default `off`)
+- `pathtotalk.adaptiveStreamingThresholdSec` — when `streamingMode = adaptive`, switch from classic buffering to live transcription after this many seconds (default `30`, range 5–300)
+- `pathtotalk.streamingIntervalSec` — how often (seconds) the live transcriber emits a partial result (default `2`)
+- `pathtotalk.log.*` — Voice Log behavior (max records, grouping, notifications, gitignore handling)
 
 ---
 
@@ -180,7 +180,7 @@ Open VS Code settings (`Ctrl+,`) and search for `puthtotalk`. Key options:
 - Workspaces without a folder fall back to a shared `voice-logs-fallback` directory under the same global storage
 - Use `Voice: Open Project Storage Folder` / `Voice: Open Global Storage Folder` to reveal the actual paths in your file manager
 
-On first activation, a legacy `.vscode/voice-log.jsonl` and `.vscode/puthtotalk/` directory are auto-migrated into the per-project global storage layout above.
+On first activation, a legacy `.vscode/voice-log.jsonl` and `.vscode/pathtotalk/` directory are auto-migrated into the per-project global storage layout above.
 
 Requirements on the host:
 

@@ -20,7 +20,7 @@ export class StatusBar implements vscode.Disposable {
             vscode.StatusBarAlignment.Right,
             100
         );
-        this.item.command = 'puthtotalk.toggleRecording';
+        this.item.command = 'pathtotalk.toggleRecording';
         this.item.show();
 
         this.disposables.push(

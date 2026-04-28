@@ -26,7 +26,7 @@ export function formatTranscriptMarkdown(segments: TranscribedSegment[], meta: T
     });
 
     const lines: string[] = [];
-    lines.push(`<!-- puthtotalk:transcript ${headerJson} -->`);
+    lines.push(`<!-- pathtotalk:transcript ${headerJson} -->`);
     lines.push(`# ${meta.source}`);
     lines.push('');
     lines.push('## Summary');

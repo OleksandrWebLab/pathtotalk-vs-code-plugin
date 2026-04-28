@@ -32,5 +32,5 @@ export const MODEL_DESCRIPTIONS: Record<WhisperModel, { size: string; detail: st
 export const VOICE_LOG_FILE = 'voice-log.jsonl';
 
 export const GLOBAL_STATE_KEYS = {
-    setupMode: 'puthtotalk.setupMode',
+    setupMode: 'pathtotalk.setupMode',
 } as const;

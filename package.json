@@ -1,6 +1,6 @@
 {
-  "name": "puthtotalk",
-  "displayName": "PuthToTalk - Voice Input",
+  "name": "pathtotalk",
+  "displayName": "PathToTalk - Voice Input",
   "description": "Local voice input via Whisper. Dictate prompts and text, copy from Voice Log.",
   "version": "0.3.6",
   "publisher": "artisanweblab",
@@ -21,131 +21,131 @@
   "contributes": {
     "commands": [
       {
-        "command": "puthtotalk.startRecording",
+        "command": "pathtotalk.startRecording",
         "title": "Voice: Start Recording"
       },
       {
-        "command": "puthtotalk.stopRecording",
+        "command": "pathtotalk.stopRecording",
         "title": "Voice: Stop Recording"
       },
       {
-        "command": "puthtotalk.toggleRecording",
+        "command": "pathtotalk.toggleRecording",
         "title": "Voice: Start / Stop Recording"
       },
       {
-        "command": "puthtotalk.cancelRecording",
+        "command": "pathtotalk.cancelRecording",
         "title": "Voice: Cancel Recording (discard)"
       },
       {
-        "command": "puthtotalk.showLog",
+        "command": "pathtotalk.showLog",
         "title": "Voice: Show Log"
       },
       {
-        "command": "puthtotalk.copyLastTranscription",
+        "command": "pathtotalk.copyLastTranscription",
         "title": "Voice: Copy Last Transcription"
       },
       {
-        "command": "puthtotalk.searchLog",
+        "command": "pathtotalk.searchLog",
         "title": "Voice: Search Log"
       },
       {
-        "command": "puthtotalk.clearProjectLog",
+        "command": "pathtotalk.clearProjectLog",
         "title": "Voice: Clear Project Log"
       },
       {
-        "command": "puthtotalk.exportLogMarkdown",
+        "command": "pathtotalk.exportLogMarkdown",
         "title": "Voice: Export Log as Markdown"
       },
       {
-        "command": "puthtotalk.openLogFile",
+        "command": "pathtotalk.openLogFile",
         "title": "Voice: Open Log File"
       },
       {
-        "command": "puthtotalk.openStorageFolder",
+        "command": "pathtotalk.openStorageFolder",
         "title": "Voice: Open Project Storage Folder"
       },
       {
-        "command": "puthtotalk.openGlobalStorageFolder",
+        "command": "pathtotalk.openGlobalStorageFolder",
         "title": "Voice: Open Global Storage Folder"
       },
       {
-        "command": "puthtotalk.changeModel",
+        "command": "pathtotalk.changeModel",
         "title": "Voice: Change Model"
       },
       {
-        "command": "puthtotalk.changeLanguage",
+        "command": "pathtotalk.changeLanguage",
         "title": "Voice: Change Language"
       },
       {
-        "command": "puthtotalk.changeDevice",
+        "command": "pathtotalk.changeDevice",
         "title": "Voice: Change Compute Device"
       },
       {
-        "command": "puthtotalk.restartServer",
+        "command": "pathtotalk.restartServer",
         "title": "Voice: Restart Server"
       },
       {
-        "command": "puthtotalk.showServerLogs",
+        "command": "pathtotalk.showServerLogs",
         "title": "Voice: Show Server Logs"
       },
       {
-        "command": "puthtotalk.showExtensionLogs",
+        "command": "pathtotalk.showExtensionLogs",
         "title": "Voice: Show Extension Logs"
       },
       {
-        "command": "puthtotalk.downloadModel",
+        "command": "pathtotalk.downloadModel",
         "title": "Voice: Download Model"
       },
       {
-        "command": "puthtotalk.resetExtension",
+        "command": "pathtotalk.resetExtension",
         "title": "Voice: Reset Extension"
       },
       {
-        "command": "puthtotalk.transcribeFile",
+        "command": "pathtotalk.transcribeFile",
         "title": "Voice: Transcribe File..."
       },
       {
-        "command": "puthtotalk.showTranscripts",
+        "command": "pathtotalk.showTranscripts",
         "title": "Voice: Show Transcripts"
       },
       {
-        "command": "puthtotalk.toggleStreamingMode",
+        "command": "pathtotalk.toggleStreamingMode",
         "title": "Voice: Change Streaming Mode (off / adaptive / on)"
       },
       {
-        "command": "puthtotalk.editVocabulary",
+        "command": "pathtotalk.editVocabulary",
         "title": "Voice: Edit Project Vocabulary"
       },
       {
-        "command": "puthtotalk.resetVocabularyToDefault",
+        "command": "pathtotalk.resetVocabularyToDefault",
         "title": "Voice: Reset Project Vocabulary to Default"
       }
     ],
     "keybindings": [
       {
-        "command": "puthtotalk.toggleRecording",
+        "command": "pathtotalk.toggleRecording",
         "key": "ctrl+shift+m"
       },
       {
-        "command": "puthtotalk.cancelRecording",
+        "command": "pathtotalk.cancelRecording",
         "key": "ctrl+alt+m",
-        "when": "puthtotalk.isRecording"
+        "when": "pathtotalk.isRecording"
       },
       {
-        "command": "puthtotalk.showLog",
+        "command": "pathtotalk.showLog",
         "key": "ctrl+shift+l"
       }
     ],
     "views": {
-      "puthtotalk-sidebar": [
+      "pathtotalk-sidebar": [
         {
           "type": "webview",
-          "id": "puthtotalk.voiceLog",
+          "id": "pathtotalk.voiceLog",
           "name": "Voice Log"
         },
         {
           "type": "webview",
-          "id": "puthtotalk.voiceTranscripts",
+          "id": "pathtotalk.voiceTranscripts",
           "name": "Voice Transcripts"
         }
       ]
@@ -153,16 +153,16 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "puthtotalk-sidebar",
-          "title": "PuthToTalk",
+          "id": "pathtotalk-sidebar",
+          "title": "PathToTalk",
           "icon": "media/icons/microphone.svg"
         }
       ]
     },
     "configuration": {
-      "title": "PuthToTalk",
+      "title": "PathToTalk",
       "properties": {
-        "puthtotalk.model": {
+        "pathtotalk.model": {
           "type": "string",
           "default": "large-v3",
           "enum": [
@@ -175,7 +175,7 @@
           ],
           "description": "Whisper model to use for transcription"
         },
-        "puthtotalk.device": {
+        "pathtotalk.device": {
           "type": "string",
           "default": "auto",
           "enum": [
@@ -186,7 +186,7 @@
           ],
           "description": "Compute device for Whisper"
         },
-        "puthtotalk.language": {
+        "pathtotalk.language": {
           "type": "string",
           "default": "auto",
           "enum": [
@@ -202,7 +202,7 @@
           ],
           "description": "Transcription language (auto = detect)"
         },
-        "puthtotalk.mode": {
+        "pathtotalk.mode": {
           "type": "string",
           "default": "push-to-talk",
           "enum": [
@@ -211,7 +211,7 @@
           ],
           "description": "Recording mode"
         },
-        "puthtotalk.computeType": {
+        "pathtotalk.computeType": {
           "type": "string",
           "default": "auto",
           "enum": [
@@ -223,19 +223,19 @@
           ],
           "description": "Compute type for faster-whisper"
         },
-        "puthtotalk.vadFilter": {
+        "pathtotalk.vadFilter": {
           "type": "boolean",
           "default": true,
           "description": "Enable voice activity detection filter"
         },
-        "puthtotalk.stopDelayMs": {
+        "pathtotalk.stopDelayMs": {
           "type": "number",
           "default": 1000,
           "minimum": 0,
           "maximum": 5000,
           "description": "Extra recording time (ms) after Stop is pressed, so the last words are not cut off"
         },
-        "puthtotalk.streamingMode": {
+        "pathtotalk.streamingMode": {
           "type": "string",
           "default": "off",
           "enum": [
@@ -250,38 +250,38 @@
           ],
           "description": "Streaming transcription mode. 'adaptive' runs short recordings in classic mode (more accurate) and only engages live transcription on long ones (faster final result on long context)."
         },
-        "puthtotalk.adaptiveStreamingThresholdSec": {
+        "pathtotalk.adaptiveStreamingThresholdSec": {
           "type": "number",
           "default": 30,
           "minimum": 5,
           "maximum": 300,
           "description": "In adaptive streaming mode, recording switches to live transcription once it exceeds this many seconds."
         },
-        "puthtotalk.streamingIntervalSec": {
+        "pathtotalk.streamingIntervalSec": {
           "type": "number",
           "default": 2,
           "minimum": 1,
           "maximum": 10,
           "description": "How often (seconds) the streaming transcriber emits a partial result"
         },
-        "puthtotalk.beamSize": {
+        "pathtotalk.beamSize": {
           "type": "number",
           "default": 5,
           "minimum": 1,
           "maximum": 10,
           "description": "Beam size for Whisper decoding"
         },
-        "puthtotalk.serverPort": {
+        "pathtotalk.serverPort": {
           "type": "number",
           "default": 0,
           "description": "Python server port (0 = auto)"
         },
-        "puthtotalk.log.maxRecords": {
+        "pathtotalk.log.maxRecords": {
           "type": "number",
           "default": 1000,
           "description": "Maximum records per project log"
         },
-        "puthtotalk.log.onLimitExceeded": {
+        "pathtotalk.log.onLimitExceeded": {
           "type": "string",
           "default": "delete-oldest",
           "enum": [
@@ -292,12 +292,12 @@
           ],
           "description": "What to do when log limit is exceeded"
         },
-        "puthtotalk.log.autoOpenPanel": {
+        "pathtotalk.log.autoOpenPanel": {
           "type": "boolean",
           "default": false,
           "description": "Auto-open Voice Log panel on VS Code start"
         },
-        "puthtotalk.log.groupBy": {
+        "pathtotalk.log.groupBy": {
           "type": "string",
           "default": "day",
           "enum": [
@@ -307,12 +307,12 @@
           ],
           "description": "Group records by time period"
         },
-        "puthtotalk.log.showNotificationOnTranscribe": {
+        "pathtotalk.log.showNotificationOnTranscribe": {
           "type": "boolean",
           "default": true,
           "description": "Show toast notification after transcription"
         },
-        "puthtotalk.log.multiRootFolder": {
+        "pathtotalk.log.multiRootFolder": {
           "type": "number",
           "default": 0,
           "description": "Folder index for multi-root workspace log storage"

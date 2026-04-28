@@ -163,7 +163,7 @@ export class ServerManager implements vscode.Disposable {
         const portFile = path.join(storageDir, 'server.port');
         const logFile = path.join(storageDir, 'logs', 'server.log');
 
-        const config = vscode.workspace.getConfiguration('puthtotalk');
+        const config = vscode.workspace.getConfiguration('pathtotalk');
         const model = config.get<string>('model', 'large-v3');
         const device = config.get<string>('device', 'auto');
         const computeType = config.get<string>('computeType', 'auto');
@@ -241,7 +241,7 @@ export class ServerManager implements vscode.Disposable {
             await vscode.window.withProgress(
                 {
                     location: vscode.ProgressLocation.Notification,
-                    title: `PuthToTalk: Loading model "${model}"...`,
+                    title: `PathToTalk: Loading model "${model}"...`,
                     cancellable: false,
                 },
                 async (progress) => {
@@ -439,11 +439,11 @@ export class ServerManager implements vscode.Disposable {
             this.oomDetected = false;
             this.outputChannel.appendLine('[ServerManager] GPU out of memory - not restarting.');
             vscode.window.showErrorMessage(
-                'PuthToTalk: Not enough GPU memory to load the model. Try selecting a smaller model in settings.',
+                'PathToTalk: Not enough GPU memory to load the model. Try selecting a smaller model in settings.',
                 'Open Settings'
             ).then(choice => {
                 if (choice === 'Open Settings') {
-                    vscode.commands.executeCommand('workbench.action.openSettings', 'puthtotalk.model');
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'pathtotalk.model');
                 }
             });
             return;
@@ -464,7 +464,7 @@ export class ServerManager implements vscode.Disposable {
         } else {
             this.outputChannel.appendLine('[ServerManager] Too many restarts, giving up.');
             vscode.window.showErrorMessage(
-                'PuthToTalk: Voice server crashed repeatedly. Click to view logs.',
+                'PathToTalk: Voice server crashed repeatedly. Click to view logs.',
                 'Show Logs'
             ).then(choice => {
                 if (choice === 'Show Logs') {

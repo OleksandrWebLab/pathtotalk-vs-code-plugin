@@ -5,7 +5,7 @@ GID := $(shell id -g)
 NODE = docker compose run --rm --user $(UID):$(GID) -e HOME=/tmp node sh -c
 NODE_ROOT = docker compose run --rm node sh -c
 VERSION := $(shell grep '"version"' package.json | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
-VSIX = puthtotalk-$(VERSION).vsix
+VSIX = pathtotalk-$(VERSION).vsix
 
 help:
 	@echo "Available targets:"

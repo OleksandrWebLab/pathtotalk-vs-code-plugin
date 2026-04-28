@@ -35,8 +35,8 @@ export function registerModelCommands(deps: CommandDeps): void {
     const modelsDir = path.join(extensionContext.globalStorageUri.fsPath, 'models');
 
     extensionContext.subscriptions.push(
-        vscode.commands.registerCommand('puthtotalk.changeModel', async () => {
-            const config = vscode.workspace.getConfiguration('puthtotalk');
+        vscode.commands.registerCommand('pathtotalk.changeModel', async () => {
+            const config = vscode.workspace.getConfiguration('pathtotalk');
             const currentModel = config.get<string>('model', 'large-v3');
 
             const items: vscode.QuickPickItem[] = WHISPER_MODELS.map(model => {
@@ -90,8 +90,8 @@ export function registerModelCommands(deps: CommandDeps): void {
             }
         }),
 
-        vscode.commands.registerCommand('puthtotalk.changeLanguage', async () => {
-            const config = vscode.workspace.getConfiguration('puthtotalk');
+        vscode.commands.registerCommand('pathtotalk.changeLanguage', async () => {
+            const config = vscode.workspace.getConfiguration('pathtotalk');
             const currentLanguage = config.get<string>('language', 'auto');
 
             const picked = await vscode.window.showQuickPick(
@@ -107,8 +107,8 @@ export function registerModelCommands(deps: CommandDeps): void {
             await config.update('language', picked.label, vscode.ConfigurationTarget.Global);
         }),
 
-        vscode.commands.registerCommand('puthtotalk.changeDevice', async () => {
-            const config = vscode.workspace.getConfiguration('puthtotalk');
+        vscode.commands.registerCommand('pathtotalk.changeDevice', async () => {
+            const config = vscode.workspace.getConfiguration('pathtotalk');
             const currentDevice = config.get<string>('device', 'auto');
             const setupMode = extensionContext.globalState.get<SetupMode>(
                 GLOBAL_STATE_KEYS.setupMode,
@@ -182,7 +182,7 @@ export function registerModelCommands(deps: CommandDeps): void {
             }
         }),
 
-        vscode.commands.registerCommand('puthtotalk.downloadModel', async () => {
+        vscode.commands.registerCommand('pathtotalk.downloadModel', async () => {
             const items: vscode.QuickPickItem[] = WHISPER_MODELS.map(model => {
                 const downloaded = isModelDownloaded(modelsDir, model);
                 const marks = [MODEL_DESCRIPTIONS[model].size];
@@ -207,7 +207,7 @@ export function registerModelCommands(deps: CommandDeps): void {
                 return;
             }
 
-            const config = vscode.workspace.getConfiguration('puthtotalk');
+            const config = vscode.workspace.getConfiguration('pathtotalk');
             const currentModel = config.get<string>('model', 'large-v3');
             try {
                 await server.runWithModelLoadingProgress(

@@ -132,7 +132,7 @@ export class VoiceLogPanel implements vscode.WebviewViewProvider, vscode.Disposa
             }
 
             case 'editVocabulary':
-                await vscode.commands.executeCommand('puthtotalk.editVocabulary');
+                await vscode.commands.executeCommand('pathtotalk.editVocabulary');
                 break;
         }
     }

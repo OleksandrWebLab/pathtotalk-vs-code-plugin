@@ -22,11 +22,11 @@ export function registerTranscribeFileCommand(
     deps: CommandDeps,
     transcriptStoreRef: { current: TranscriptStore },
 ): vscode.Disposable {
-    return vscode.commands.registerCommand('puthtotalk.transcribeFile', async () => {
+    return vscode.commands.registerCommand('pathtotalk.transcribeFile', async () => {
         const { server, apiClient, globalStorageDir, output } = deps;
 
         if (server.status !== 'ready') {
-            vscode.window.showWarningMessage('PuthToTalk: Voice server is not ready yet.');
+            vscode.window.showWarningMessage('PathToTalk: Voice server is not ready yet.');
             return;
         }
 
@@ -58,7 +58,7 @@ export function registerTranscribeFileCommand(
             }
         }
 
-        const config = vscode.workspace.getConfiguration('puthtotalk');
+        const config = vscode.workspace.getConfiguration('pathtotalk');
         const configuredLanguage = config.get<string>('language', 'auto');
         const language = configuredLanguage === 'auto' ? null : configuredLanguage;
         const model = config.get<string>('model', 'large-v3');

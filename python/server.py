@@ -1,5 +1,5 @@
 """
-FastAPI server for PuthToTalk VS Code extension.
+FastAPI server for PathToTalk VS Code extension.
 Receives audio, transcribes via faster-whisper, returns text.
 
 Usage:
@@ -68,7 +68,7 @@ def setup_logging(log_file: Optional[str]) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="PuthToTalk Whisper server")
+    parser = argparse.ArgumentParser(description="PathToTalk Whisper server")
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--model", type=str, default="large-v3")
     parser.add_argument("--device", type=str, default="auto")
@@ -242,7 +242,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="PuthToTalk", lifespan=lifespan)
+app = FastAPI(title="PathToTalk", lifespan=lifespan)
 
 
 def verify_token(x_extension_token: str = Header(...)) -> None:
@@ -608,7 +608,7 @@ def main() -> None:
     with open(server_args.port_file, "w") as f:
         f.write(str(port))
 
-    logger.info("Starting PuthToTalk server on 127.0.0.1:{}", port)
+    logger.info("Starting PathToTalk server on 127.0.0.1:{}", port)
 
     uvicorn.run(
         app,

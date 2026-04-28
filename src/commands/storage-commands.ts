@@ -10,13 +10,13 @@ export function registerStorageCommands(deps: CommandDeps): void {
     const { extensionContext, globalStorageDir } = deps;
 
     extensionContext.subscriptions.push(
-        vscode.commands.registerCommand('puthtotalk.openStorageFolder', async () => {
+        vscode.commands.registerCommand('pathtotalk.openStorageFolder', async () => {
             const location = ProjectStorage.resolve(globalStorageDir);
             ProjectStorage.ensureStorageWithMeta(location);
             await vscode.env.openExternal(vscode.Uri.file(location.storageDir));
         }),
 
-        vscode.commands.registerCommand('puthtotalk.openGlobalStorageFolder', async () => {
+        vscode.commands.registerCommand('pathtotalk.openGlobalStorageFolder', async () => {
             const root = path.join(globalStorageDir, PROJECTS_DIR);
             await vscode.env.openExternal(vscode.Uri.file(root));
         }),

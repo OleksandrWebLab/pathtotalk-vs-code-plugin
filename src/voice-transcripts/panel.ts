@@ -69,7 +69,7 @@ export class VoiceTranscriptsPanel implements vscode.WebviewViewProvider, vscode
                 break;
 
             case 'transcribeFile':
-                await vscode.commands.executeCommand('puthtotalk.transcribeFile');
+                await vscode.commands.executeCommand('pathtotalk.transcribeFile');
                 break;
 
             case 'open': {
@@ -98,7 +98,7 @@ export class VoiceTranscriptsPanel implements vscode.WebviewViewProvider, vscode
             }
 
             case 'editVocabulary':
-                await vscode.commands.executeCommand('puthtotalk.editVocabulary');
+                await vscode.commands.executeCommand('pathtotalk.editVocabulary');
                 break;
         }
     }

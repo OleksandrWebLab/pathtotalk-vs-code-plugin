@@ -55,7 +55,7 @@ export class AudioRecorder implements vscode.Disposable {
         this.process.on('error', (err) => {
             this.cleanup();
             vscode.window.showErrorMessage(
-                `PuthToTalk: Failed to start recorder (${recorder}): ${err.message}. ` +
+                `PathToTalk: Failed to start recorder (${recorder}): ${err.message}. ` +
                 `Install parecord: sudo dnf install pulseaudio-utils`
             );
         });
@@ -71,7 +71,7 @@ export class AudioRecorder implements vscode.Disposable {
 
         this.setState('finishing');
 
-        const tailDelayMs = vscode.workspace.getConfiguration('puthtotalk')
+        const tailDelayMs = vscode.workspace.getConfiguration('pathtotalk')
             .get<number>('stopDelayMs', DEFAULT_STOP_DELAY_MS);
         if (tailDelayMs > 0) {
             await new Promise(resolve => setTimeout(resolve, tailDelayMs));
@@ -125,7 +125,7 @@ export class AudioRecorder implements vscode.Disposable {
         this.process.on('error', (err) => {
             this.cleanup();
             vscode.window.showErrorMessage(
-                `PuthToTalk: Failed to start recorder (${recorder}): ${err.message}`
+                `PathToTalk: Failed to start recorder (${recorder}): ${err.message}`
             );
         });
 
@@ -140,7 +140,7 @@ export class AudioRecorder implements vscode.Disposable {
 
         this.setState('finishing');
 
-        const tailDelayMs = vscode.workspace.getConfiguration('puthtotalk')
+        const tailDelayMs = vscode.workspace.getConfiguration('pathtotalk')
             .get<number>('stopDelayMs', DEFAULT_STOP_DELAY_MS);
         if (tailDelayMs > 0) {
             await new Promise(resolve => setTimeout(resolve, tailDelayMs));

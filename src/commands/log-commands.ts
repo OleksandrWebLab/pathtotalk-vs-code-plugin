@@ -8,11 +8,11 @@ export function registerLogCommands(deps: CommandDeps): void {
     const { extensionContext, voiceLogPanel, getLogStore, globalStorageDir } = deps;
 
     extensionContext.subscriptions.push(
-        vscode.commands.registerCommand('puthtotalk.showLog', () => {
-            vscode.commands.executeCommand('puthtotalk.voiceLog.focus');
+        vscode.commands.registerCommand('pathtotalk.showLog', () => {
+            vscode.commands.executeCommand('pathtotalk.voiceLog.focus');
         }),
 
-        vscode.commands.registerCommand('puthtotalk.copyLastTranscription', async () => {
+        vscode.commands.registerCommand('pathtotalk.copyLastTranscription', async () => {
             const records = await getLogStore().list();
             if (records.length === 0) {
                 vscode.window.showInformationMessage('No voice records yet.');
@@ -22,12 +22,12 @@ export function registerLogCommands(deps: CommandDeps): void {
             vscode.window.showInformationMessage('Copied last transcription.');
         }),
 
-        vscode.commands.registerCommand('puthtotalk.searchLog', () => {
-            vscode.commands.executeCommand('puthtotalk.showLog');
+        vscode.commands.registerCommand('pathtotalk.searchLog', () => {
+            vscode.commands.executeCommand('pathtotalk.showLog');
             voiceLogPanel.focusSearch();
         }),
 
-        vscode.commands.registerCommand('puthtotalk.clearProjectLog', async () => {
+        vscode.commands.registerCommand('pathtotalk.clearProjectLog', async () => {
             const confirm = await vscode.window.showWarningMessage(
                 'Clear all voice log records for this project?',
                 { modal: true },
@@ -38,7 +38,7 @@ export function registerLogCommands(deps: CommandDeps): void {
             }
         }),
 
-        vscode.commands.registerCommand('puthtotalk.exportLogMarkdown', async () => {
+        vscode.commands.registerCommand('pathtotalk.exportLogMarkdown', async () => {
             const markdown = await getLogStore().exportMarkdown();
             const doc = await vscode.workspace.openTextDocument({
                 content: markdown,
@@ -47,7 +47,7 @@ export function registerLogCommands(deps: CommandDeps): void {
             vscode.window.showTextDocument(doc);
         }),
 
-        vscode.commands.registerCommand('puthtotalk.openLogFile', () => {
+        vscode.commands.registerCommand('pathtotalk.openLogFile', () => {
             const location = ProjectStorage.resolve(globalStorageDir);
             if (!fs.existsSync(location.logPath)) {
                 vscode.window.showInformationMessage('No voice log file yet.');

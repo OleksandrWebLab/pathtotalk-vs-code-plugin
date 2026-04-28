@@ -6,7 +6,7 @@ import { TranscriptFile } from './types';
 import { SUMMARY_PLACEHOLDER } from './transcript-formatter';
 
 const TRANSCRIPT_EXTENSION = '.md';
-const HEADER_PATTERN = /^<!--\s*puthtotalk:transcript\s+(\{.*\})\s*-->/;
+const HEADER_PATTERN = /^<!--\s*pathtotalk:transcript\s+(\{.*\})\s*-->/;
 const SUMMARY_SECTION_PATTERN = /^##\s+Summary\s*$/m;
 const PREAMBLE_BYTES = 4096;
 const NON_TRANSCRIPT_FILES = new Set(['README.md', 'vocabulary.md']);

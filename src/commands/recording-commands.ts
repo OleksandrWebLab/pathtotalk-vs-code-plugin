@@ -123,7 +123,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
     }
 
     async function startStreamingFlow(): Promise<void> {
-        const config = vscode.workspace.getConfiguration('puthtotalk');
+        const config = vscode.workspace.getConfiguration('pathtotalk');
         const language = config.get<string>('language', 'auto');
         const interval = config.get<number>('streamingIntervalSec', 2);
 
@@ -181,7 +181,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
     }
 
     async function startAdaptiveFlow(): Promise<void> {
-        const config = vscode.workspace.getConfiguration('puthtotalk');
+        const config = vscode.workspace.getConfiguration('pathtotalk');
         const language = config.get<string>('language', 'auto');
         const thresholdSec = config.get<number>('adaptiveStreamingThresholdSec', 30);
         adaptiveIntervalSec = config.get<number>('streamingIntervalSec', 2);
@@ -250,7 +250,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         let headText = '';
         if (headChunks.length > 0) {
             const wavBuffer = encodePcmToWav(headChunks);
-            const config = vscode.workspace.getConfiguration('puthtotalk');
+            const config = vscode.workspace.getConfiguration('pathtotalk');
             try {
                 const headResult = await apiClient.transcribe(
                     wavBuffer,
@@ -324,7 +324,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         publishTranscribingDraft(stopResult.durationSec, '');
 
         const wavBuffer = encodePcmToWav(bufferedChunks);
-        const config = vscode.workspace.getConfiguration('puthtotalk');
+        const config = vscode.workspace.getConfiguration('pathtotalk');
 
         let transcribeResult;
         try {
@@ -343,7 +343,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         clearDraft();
 
         if (!transcribeResult.text.trim()) {
-            vscode.window.showInformationMessage('PuthToTalk: No speech detected.');
+            vscode.window.showInformationMessage('PathToTalk: No speech detected.');
             return;
         }
 
@@ -362,7 +362,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         await getLogStore().add(record);
 
         const showNotification = vscode.workspace
-            .getConfiguration('puthtotalk.log')
+            .getConfiguration('pathtotalk.log')
             .get<boolean>('showNotificationOnTranscribe', true);
         if (showNotification) {
             const previewLimit = 50;
@@ -414,7 +414,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             return;
         }
 
-        const config = vscode.workspace.getConfiguration('puthtotalk');
+        const config = vscode.workspace.getConfiguration('pathtotalk');
         const record: VoiceRecord = {
             id: streamingDraftId,
             timestamp: new Date(streamingStartMs).toISOString(),
@@ -430,7 +430,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
         await getLogStore().add(record);
 
         const showNotification = vscode.workspace
-            .getConfiguration('puthtotalk.log')
+            .getConfiguration('pathtotalk.log')
             .get<boolean>('showNotificationOnTranscribe', true);
         if (showNotification) {
             const previewLimit = 50;
@@ -489,7 +489,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
     }
 
     function getStreamingMode(): StreamingModeValue {
-        const raw = vscode.workspace.getConfiguration('puthtotalk').get<unknown>('streamingMode', 'off');
+        const raw = vscode.workspace.getConfiguration('pathtotalk').get<unknown>('streamingMode', 'off');
         if (raw === true) {
             return 'on';
         }
@@ -503,8 +503,8 @@ export function registerRecordingCommands(deps: CommandDeps): void {
     }
 
     extensionContext.subscriptions.push(
-        vscode.commands.registerCommand('puthtotalk.toggleStreamingMode', async () => {
-            const config = vscode.workspace.getConfiguration('puthtotalk');
+        vscode.commands.registerCommand('pathtotalk.toggleStreamingMode', async () => {
+            const config = vscode.workspace.getConfiguration('pathtotalk');
             const current = getStreamingMode();
 
             const items: Array<vscode.QuickPickItem & { value: StreamingModeValue }> =
@@ -516,7 +516,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
                 }));
 
             const picked = await vscode.window.showQuickPick(items, {
-                title: 'PuthToTalk: Streaming Mode',
+                title: 'PathToTalk: Streaming Mode',
                 placeHolder: `Current: ${STREAMING_MODE_OPTIONS.find(o => o.value === current)?.label ?? current}`,
                 matchOnDescription: true,
                 matchOnDetail: true,
@@ -531,18 +531,18 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             vscode.window.showInformationMessage(`Streaming mode: ${newLabel}`);
         }),
 
-        vscode.commands.registerCommand('puthtotalk.toggleRecording', async () => {
+        vscode.commands.registerCommand('pathtotalk.toggleRecording', async () => {
             if (recorder.state === 'recording') {
-                await vscode.commands.executeCommand('puthtotalk.stopRecording');
+                await vscode.commands.executeCommand('pathtotalk.stopRecording');
                 return;
             }
             if (recorder.state === 'idle') {
-                await vscode.commands.executeCommand('puthtotalk.startRecording');
+                await vscode.commands.executeCommand('pathtotalk.startRecording');
             }
         }),
 
-        vscode.commands.registerCommand('puthtotalk.cancelRecording', async () => {
-            await vscode.commands.executeCommand('setContext', 'puthtotalk.isRecording', false);
+        vscode.commands.registerCommand('pathtotalk.cancelRecording', async () => {
+            await vscode.commands.executeCommand('setContext', 'pathtotalk.isRecording', false);
             if (recorder.state !== 'recording' && recorder.state !== 'finishing') {
                 return;
             }
@@ -553,15 +553,15 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             }
         }),
 
-        vscode.commands.registerCommand('puthtotalk.startRecording', async () => {
+        vscode.commands.registerCommand('pathtotalk.startRecording', async () => {
             if (server.status !== 'ready') {
-                vscode.window.showWarningMessage('PuthToTalk: Server is not ready yet.');
+                vscode.window.showWarningMessage('PathToTalk: Server is not ready yet.');
                 return;
             }
             if (recorder.state !== 'idle') {
                 return;
             }
-            await vscode.commands.executeCommand('setContext', 'puthtotalk.isRecording', true);
+            await vscode.commands.executeCommand('setContext', 'pathtotalk.isRecording', true);
             try {
                 const mode = getStreamingMode();
                 if (mode === 'on') {
@@ -575,7 +575,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
                     await recorder.start();
                 }
             } catch (err) {
-                await vscode.commands.executeCommand('setContext', 'puthtotalk.isRecording', false);
+                await vscode.commands.executeCommand('setContext', 'pathtotalk.isRecording', false);
                 streamingSession?.cancel();
                 streamingSession = null;
                 clearAdaptiveTimer();
@@ -586,8 +586,8 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             }
         }),
 
-        vscode.commands.registerCommand('puthtotalk.stopRecording', async () => {
-            await vscode.commands.executeCommand('setContext', 'puthtotalk.isRecording', false);
+        vscode.commands.registerCommand('pathtotalk.stopRecording', async () => {
+            await vscode.commands.executeCommand('setContext', 'pathtotalk.isRecording', false);
             if (recorder.state !== 'recording') {
                 return;
             }
@@ -626,7 +626,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
 
             publishTranscribingDraft(result.durationSec, '');
 
-            const config = vscode.workspace.getConfiguration('puthtotalk');
+            const config = vscode.workspace.getConfiguration('pathtotalk');
             const location = ProjectStorage.resolve(globalStorageDir);
             ensureStorageDir(location.storageDir);
             const vocabulary = loadVocabulary(location.storageDir);
@@ -649,7 +649,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             clearDraft();
 
             if (!transcribeResult.text.trim()) {
-                vscode.window.showInformationMessage('PuthToTalk: No speech detected.');
+                vscode.window.showInformationMessage('PathToTalk: No speech detected.');
                 return;
             }
 
@@ -668,7 +668,7 @@ export function registerRecordingCommands(deps: CommandDeps): void {
             await getLogStore().add(record);
 
             const showNotification = vscode.workspace
-                .getConfiguration('puthtotalk.log')
+                .getConfiguration('pathtotalk.log')
                 .get<boolean>('showNotificationOnTranscribe', true);
 
             if (showNotification) {

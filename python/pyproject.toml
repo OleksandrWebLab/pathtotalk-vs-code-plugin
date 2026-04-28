@@ -3,9 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "puthtotalk-server"
+name = "pathtotalk-server"
 version = "0.1.0"
-description = "FastAPI server that runs faster-whisper transcription for the PuthToTalk VS Code extension."
+description = "FastAPI server that runs faster-whisper transcription for the PathToTalk VS Code extension."
 requires-python = ">=3.10"
 dependencies = [
     "faster-whisper>=1.0.0",

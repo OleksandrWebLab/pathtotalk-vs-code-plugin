@@ -67,7 +67,7 @@ export class SetupWizard {
 
     async runFirstTimeSetup(): Promise<boolean> {
         const choice = await vscode.window.showInformationMessage(
-            'PuthToTalk needs to set up a Python virtual environment. The Whisper model will be downloaded on first use. Continue?',
+            'PathToTalk needs to set up a Python virtual environment. The Whisper model will be downloaded on first use. Continue?',
             'Set up now',
             'Later',
         );
@@ -92,14 +92,14 @@ export class SetupWizard {
 
         const setupMode = await this.resolveSetupMode(deviceChoice);
 
-        const config = vscode.workspace.getConfiguration('puthtotalk');
+        const config = vscode.workspace.getConfiguration('pathtotalk');
         await config.update('model', modelPick, vscode.ConfigurationTarget.Global);
         await config.update('streamingMode', streamingChoice, vscode.ConfigurationTarget.Global);
 
         return await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
-                title: 'PuthToTalk: Setting up...',
+                title: 'PathToTalk: Setting up...',
                 cancellable: false,
             },
             async (progress) => {
@@ -112,7 +112,7 @@ export class SetupWizard {
                     const pythonBin = await this.findPython();
                     if (!pythonBin) {
                         vscode.window.showErrorMessage(
-                            'PuthToTalk: Python 3.10+ not found. Install Python 3.10+ and restart VS Code.',
+                            'PathToTalk: Python 3.10+ not found. Install Python 3.10+ and restart VS Code.',
                         );
                         return false;
                     }
@@ -156,7 +156,7 @@ export class SetupWizard {
                 } catch (err) {
                     this.cleanupFailedVenv();
                     vscode.window.showErrorMessage(
-                        `PuthToTalk setup failed: ${err}. The broken environment was removed - run setup again to retry.`,
+                        `PathToTalk setup failed: ${err}. The broken environment was removed - run setup again to retry.`,
                     );
                     return false;
                 }
@@ -168,7 +168,7 @@ export class SetupWizard {
         const hasWlCopy = await this.commandExists('wl-copy');
         if (!hasWlCopy) {
             vscode.window.showWarningMessage(
-                'PuthToTalk: wl-clipboard not found. Copy button will use fallback mode. ' +
+                'PathToTalk: wl-clipboard not found. Copy button will use fallback mode. ' +
                 'Install with: sudo dnf install wl-clipboard',
                 'Dismiss',
             );
@@ -185,7 +185,7 @@ export class SetupWizard {
 
         const picked = await vscode.window.showQuickPick(items, {
             placeHolder: 'Select Whisper model (can be changed later in settings)',
-            title: 'PuthToTalk: Choose Model',
+            title: 'PathToTalk: Choose Model',
             matchOnDescription: true,
             matchOnDetail: true,
         });
@@ -222,7 +222,7 @@ export class SetupWizard {
 
         const picked = await vscode.window.showQuickPick(items, {
             placeHolder: 'Select compute device for the Whisper model',
-            title: 'PuthToTalk: Choose Device',
+            title: 'PathToTalk: Choose Device',
             matchOnDetail: true,
         });
 
@@ -253,7 +253,7 @@ export class SetupWizard {
 
         const picked = await vscode.window.showQuickPick(items, {
             placeHolder: 'Choose streaming (live) transcription mode',
-            title: 'PuthToTalk: Streaming Mode',
+            title: 'PathToTalk: Streaming Mode',
             matchOnDetail: true,
         });
 

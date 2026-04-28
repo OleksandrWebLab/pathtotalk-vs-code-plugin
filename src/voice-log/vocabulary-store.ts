@@ -151,7 +151,7 @@ migration
 seeder
 factory
 
-# Project-specific (PuthToTalk)
+# Project-specific (PathToTalk)
 Whisper
 faster-whisper
 CUDA

@@ -3,9 +3,9 @@ import * as path from 'path';
 
 const README_FILE = 'README.md';
 
-const README_CONTENT = `# PuthToTalk Project Storage
+const README_CONTENT = `# PathToTalk Project Storage
 
-This folder holds voice input data for one project handled by the [PuthToTalk](https://github.com/OleksandrWebLab/pathtotalk-vs-code-plugin) VS Code extension. It lives inside VS Code's per-extension global storage (\`globalStorageUri\`), not inside the project itself - nothing is committed to git, and the personal vocabulary stays personal.
+This folder holds voice input data for one project handled by the [PathToTalk](https://github.com/OleksandrWebLab/pathtotalk-vs-code-plugin) VS Code extension. It lives inside VS Code's per-extension global storage (\`globalStorageUri\`), not inside the project itself - nothing is committed to git, and the personal vocabulary stays personal.
 
 The folder name follows the pattern \`<workspace-name>-<sha256(workspace-path)[0..16]>\` so each opened workspace gets its own isolated storage. The mapping between a folder and the workspace it belongs to is recorded in \`.meta.json\`.
 

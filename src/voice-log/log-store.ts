@@ -163,7 +163,7 @@ export class LogStore implements vscode.Disposable {
     }
 
     private async enforceLimit(): Promise<void> {
-        const config = vscode.workspace.getConfiguration('puthtotalk.log');
+        const config = vscode.workspace.getConfiguration('pathtotalk.log');
         const maxRecords = config.get<number>('maxRecords', 1000);
         const strategy = config.get<string>('onLimitExceeded', 'delete-oldest');
 

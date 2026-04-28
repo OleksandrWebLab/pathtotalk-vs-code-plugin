@@ -8,22 +8,22 @@ export function registerServerCommands(deps: CommandDeps): void {
     const { extensionContext, server, output } = deps;
 
     extensionContext.subscriptions.push(
-        vscode.commands.registerCommand('puthtotalk.restartServer', async () => {
+        vscode.commands.registerCommand('pathtotalk.restartServer', async () => {
             await server.restart();
             vscode.window.showInformationMessage('Voice server restarted.');
         }),
 
-        vscode.commands.registerCommand('puthtotalk.showServerLogs', () => {
+        vscode.commands.registerCommand('pathtotalk.showServerLogs', () => {
             output.show();
         }),
 
-        vscode.commands.registerCommand('puthtotalk.showExtensionLogs', () => {
+        vscode.commands.registerCommand('pathtotalk.showExtensionLogs', () => {
             output.show();
         }),
 
-        vscode.commands.registerCommand('puthtotalk.resetExtension', async () => {
+        vscode.commands.registerCommand('pathtotalk.resetExtension', async () => {
             const confirm = await vscode.window.showWarningMessage(
-                'Reset PuthToTalk? This will delete the Python venv and all downloaded models.',
+                'Reset PathToTalk? This will delete the Python venv and all downloaded models.',
                 { modal: true },
                 'Reset',
             );
@@ -35,7 +35,7 @@ export function registerServerCommands(deps: CommandDeps): void {
             fs.rmSync(path.join(storageDir, 'python-venv'), { recursive: true, force: true });
             fs.rmSync(path.join(storageDir, 'models'), { recursive: true, force: true });
             vscode.window.showInformationMessage(
-                'PuthToTalk reset. Restart VS Code to set up again.',
+                'PathToTalk reset. Restart VS Code to set up again.',
             );
         }),
     );

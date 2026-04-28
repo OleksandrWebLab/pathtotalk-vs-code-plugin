@@ -6,7 +6,7 @@
 #   - package.json + package-lock.json bumped to the given version
 #   - commit "chore: release vX.Y.Z" pushed to origin/main
 #   - tag vX.Y.Z pushed to origin
-#   - GitHub Release vX.Y.Z created with puthtotalk-X.Y.Z.vsix attached
+#   - GitHub Release vX.Y.Z created with pathtotalk-X.Y.Z.vsix attached
 #
 # Requires: docker, docker compose, gh CLI (authenticated), git remote "origin"
 
@@ -26,7 +26,7 @@ if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 
 TAG="v$VERSION"
-VSIX="puthtotalk-$VERSION.vsix"
+VSIX="pathtotalk-$VERSION.vsix"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 

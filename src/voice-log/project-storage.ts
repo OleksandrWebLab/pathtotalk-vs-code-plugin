@@ -9,8 +9,8 @@ import { ensureStorageDir } from './storage-readme';
 const PROJECTS_DIR = 'projects';
 const NO_WORKSPACE_DIR = '_no-workspace';
 const META_FILE = '.meta.json';
-const LEGACY_FALLBACK_DIR = 'puthtotalk-fallback';
-const LEGACY_PROJECT_RELATIVE_DIR = '.vscode/puthtotalk';
+const LEGACY_FALLBACK_DIR = 'pathtotalk-fallback';
+const LEGACY_PROJECT_RELATIVE_DIR = '.vscode/pathtotalk';
 
 export type ProjectStorageType = 'project' | 'fallback';
 
@@ -44,7 +44,7 @@ export class ProjectStorage {
             };
         }
 
-        const config = vscode.workspace.getConfiguration('puthtotalk.log');
+        const config = vscode.workspace.getConfiguration('pathtotalk.log');
         const folderIndex = config.get<number>('multiRootFolder', 0);
         const folder = folders[Math.min(folderIndex, folders.length - 1)];
         const workspacePath = folder.uri.fsPath;
