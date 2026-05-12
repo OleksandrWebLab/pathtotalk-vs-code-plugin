@@ -1,3 +1,13 @@
+> [!IMPORTANT]
+> **This project has moved.**
+>
+> The plugin have been merged into a single extension — **Sonara**.
+>
+> 👉 New repository: **[github.com/ArtisanWebLab/sonara](https://github.com/ArtisanWebLab/sonara)**
+>
+> This repository is archived and will no longer receive updates, bug fixes, or new features. Please switch to Sonara for the latest version.
+
+
 # PathToTalk — Voice Input for VS Code
 
 Local voice input and media transcription via Whisper. Dictate prompts and text into the Voice Log, or drop an audio/video file and get a timestamped transcript — all through a single local Whisper server.
